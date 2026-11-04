@@ -240,9 +240,10 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:16/9}
   <div class="final" id="final" hidden>
     <div class="big" id="finalScore"></div>
     <p class="brief" id="finalText"></p>
+    <p class="note" id="shareMsg" aria-live="polite"></p>
     <div class="mistakes" id="mistakes"></div>
     <p class="brief" id="reviewWhy" hidden></p>
-    <div class="row" style="justify-content:center"><button class="btn primary" id="restart">Play again</button><button class="btn" id="toMenu">Leaderboard</button></div>
+    <div class="row" style="justify-content:center"><button class="btn primary" id="share">Share result</button><button class="btn" id="restart">Play again</button><button class="btn" id="toMenu">Leaderboard</button></div>
   </div>
   </div>
 </div>
@@ -305,6 +306,69 @@ const CASES=[
 {t:3,real:1,id:'Tiote',meta:'Premier League 2013/14',brief:'Volley from distance. Blue <strong>#11</strong> stands in front of the keeper.',p:[580,330],r:[680,290],f:[680,290],decoy:[878,272],dk:1,d:[[740,220],[735,310],[720,380],[690,150]],k:[903,270],goal:false,ref:'Flagged, no goal',why:'#11 (Gouffran) was offside in front of the keeper. The officials judged that interfering. It\'s still argued about.',match:'Newcastle v Man City, January 2014. City won 2-0.'},
 {t:3,real:1,id:'Ji',meta:'Premier League 2011/12',brief:'Last minute. Ball through for blue <strong>#10</strong>.',p:[640,330],r:[836,300],f:[870,285],d:[[830,240],[826,320],[800,370],[780,180]],k:[900,265],goal:false,ref:'Goal given',why:'He was fractionally offside.',match:'Sunderland v Man City, January 2012. Sunderland won 1-0.'},
 ];
+/* ---------- Generated training cases ----------
+   Built from templates with a fixed seed, so every player gets the same pool (the Daily stays fair).
+   Each one follows the offside law by construction. */
+function generateCases(count){
+  let h=1779033703^9;const seed='flagup-pool-v1';for(let i=0;i<seed.length;i++){h=Math.imul(h^seed.charCodeAt(i),3432918353);h=h<<13|h>>>19}
+  const r=()=>{h=Math.imul(h^h>>>16,2246822507);h=Math.imul(h^h>>>13,3266489909);return((h^=h>>>16)>>>0)/4294967296};
+  const ri=(a,b)=>Math.round(a+r()*(b-a)), pick=a=>a[Math.floor(r()*a.length)];
+  const NUMS=['7','8','9','10','11','14','17','19','20','23'];
+  const defsAt=(L,y)=>[[L,y-30],[L-ri(6,26),y+50],[L-ri(20,60),y+120],[L-ri(40,90),y-100]].map(([x,yy])=>[x,Math.max(70,Math.min(470,yy))]);
+  const keeper=(L)=>[Math.min(905,Math.max(L+45,ri(888,905))),ri(250,290)];
+  const W={through:9,cross:6,cutback:2,throw:2,corner:1,goalkick:2,rebound:3,decoyFar:2,decoyBlock:2,deliberate:2,deflect:2,ownHalf:2,keeperOut:1,arm:1,shoulder:1,offPitch:1,twoRunners:2};
+  const bag=Object.entries(W).flatMap(([k,n])=>Array(n).fill(k));
+  const out=[];
+  for(let i=0;i<count;i++){
+    const t=pick(bag), n=pick(NUMS), d2=pick(NUMS.filter(x=>x!==n));
+    let c=null;
+    const L=ri(660,830), y=ri(200,300), K=keeper(L);
+    const margin=()=>pick([[-ri(25,45),1],[ri(28,60),1],[0,2],[-ri(4,9),3],[ri(6,12),3]]);
+    if(t==='through'){const [m,tier]=margin();const ry=ri(200,320);
+      c={t:tier,brief:`Through ball. Watch blue <strong>#${n}</strong>.`,p:[L-ri(130,200),ri(260,360)],r:[L+m,ry],f:[Math.min(L+100,872),ry+ri(-10,10)],d:defsAt(L,y),k:K,goal:m<=0,
+         why:m<0?'He was behind the last defender.':m===0?'He was exactly level with the second-last defender. Level is onside.':m<15?'He was just beyond the line. Tight, but offside.':'He was clearly beyond the last defender.'}}
+    else if(t==='cross'){const [m,tier]=margin();const top=r()<.5;
+      c={t:tier,brief:`Cross from the ${top?'left':'right'}. Watch blue <strong>#${n}</strong>.`,p:[L-ri(40,80),top?ri(70,95):ri(445,470)],r:[L+m,ri(240,300)],f:[Math.min(L+m+30,884),ri(250,290)],d:defsAt(L,y),k:K,goal:m<=0,
+         why:m<=0?'He was level with or behind the last defender when the cross was hit.':'He was ahead of the last defender when the cross was hit.'}}
+    else if(t==='cutback'){const Lc=ri(760,820);
+      c={t:2,brief:`Cutback from the byline to blue <strong>#${n}</strong>.`,p:[905,pick([380,165])],r:[Lc+ri(15,45),ri(255,295)],f:null,d:defsAt(Lc,y),k:[Math.max(Lc+60,898),ri(255,280)],goal:true,why:'He was behind the ball when it was played, so he can\'t be offside.'};c.f=c.r.slice()}
+    else if(t==='throw'){const top=r()<.5;
+      c={t:2,restart:'throw',brief:`Throw-in to blue <strong>#${n}</strong>.`,p:[L-ri(60,110),top?42:498],r:[L+ri(30,60),top?ri(130,160):ri(380,410)],f:[Math.min(L+90,870),ri(240,290)],d:defsAt(L,y),k:K,goal:true,why:'There\'s no offside from a throw-in.'}}
+    else if(t==='corner'){
+      c={t:2,restart:'corner',brief:`Corner. Blue <strong>#${n}</strong> is on the goal line.`,p:[918,42],r:[ri(900,910),ri(240,270)],f:null,d:[[ri(860,875),230],[ri(850,865),300],[ri(830,845),350],[ri(790,810),200]],k:[898,285],goal:true,why:'There\'s no offside straight from a corner.'};c.f=c.r.slice()}
+    else if(t==='goalkick'){const Lg=ri(540,640);
+      c={t:2,restart:'goalkick',brief:`Long goal kick. Blue <strong>#${n}</strong> is beyond the defence.`,p:[44,ri(240,300)],r:[Lg+ri(35,80),ri(220,300)],f:[850,ri(250,280)],d:defsAt(Lg,y),k:[ri(885,900),ri(255,285)],goal:true,why:'There\'s no offside straight from a goal kick.'}}
+    else if(t==='rebound'){const off=r()<.65, save=r()<.5;
+      c={t:2,brief:`Shot ${save?'saved':'hits the post'}. Watch blue <strong>#${n}</strong>.`,p:[L-ri(40,80),ri(290,330)],r:[off?L+ri(25,50):L-ri(15,30),ri(215,245)],f:[Math.min(L+90,880),ri(240,255)],via:save?[K[0]-6,K[1]-4]:[920,238],d:defsAt(L,y),k:K,goal:!off,
+         why:off?`He was offside when the shot was hit. ${save?'A save':'Hitting the post'} doesn't reset it.`:'He was onside when the shot was hit, so the rebound is fair.'}}
+    else if(t==='decoyFar'){
+      c={t:3,brief:`Shot from distance. Blue <strong>#${d2}</strong> is out on the far side.`,p:[L-ri(130,170),ri(320,360)],r:[L-ri(40,70),ri(280,320)],f:null,decoy:[L+ri(50,90),pick([440,95])],dk:1,rn:n,dn:d2,d:defsAt(L,y),k:K,goal:true,why:`#${d2} was offside but nowhere near the play, so he wasn't interfering.`};c.f=c.r.slice()}
+    else if(t==='decoyBlock'){
+      c={t:3,brief:`Shot from distance. Blue <strong>#${d2}</strong> stands in front of the keeper.`,p:[L-ri(130,170),ri(320,360)],r:[L-ri(40,70),ri(280,320)],f:null,decoy:[K[0]-ri(26,34),K[1]],dk:1,rn:n,dn:d2,d:defsAt(L,y),k:K,goal:false,why:`#${d2} was offside and blocking the keeper's view. That's interfering.`};c.f=c.r.slice()}
+    else if(t==='deliberate'||t==='deflect'){const del=t==='deliberate';const dx=L-ri(15,30),dy=ri(275,300);const ds=defsAt(L,y);ds[1]=[dx,dy];
+      c={t:3,brief:del?`An orange defender tries to control the pass. Watch blue <strong>#${n}</strong>.`:`An orange defender sticks out a leg to block. Watch blue <strong>#${n}</strong>.`,p:[L-ri(160,200),ri(290,320)],via:[dx,dy-5],r:[L+ri(30,55),ri(225,255)],f:[Math.min(L+100,870),ri(250,265)],d:ds,k:K,goal:del,
+         why:del?'The defender deliberately played the ball. That resets offside.':'A block or deflection isn\'t a deliberate play. He was still offside.'}}
+    else if(t==='ownHalf'){const Lh=ri(140,165);
+      c={t:2,brief:`Orange push right up. Blue <strong>#${n}</strong> runs from deep.`,p:[ri(80,110),ri(320,350)],r:[ri(Lh+4,178),ri(230,270)],f:[850,ri(250,270)],d:defsAt(Lh,y),k:[ri(875,890),ri(255,280)],goal:true,why:'He was in his own half when the ball was played. You can\'t be offside in your own half.'}}
+    else if(t==='keeperOut'){
+      c={t:3,brief:`The keeper has rushed out. Watch blue <strong>#${n}</strong>.`,p:[L-ri(150,190),ri(290,320)],r:[L,ri(240,260)],f:[Math.min(L+100,870),255],d:[[L,ri(200,220)],[L,ri(300,320)],[L-ri(20,40),380],[L-ri(50,80),150]],k:[L+ri(15,30),ri(260,275)],goal:true,why:'With the keeper out, the second-last player was an outfield defender. He was level with them.'}}
+    else if(t==='arm'){
+      c={t:3,arm:1,brief:`Through ball. Look closely at blue <strong>#${n}</strong>.`,p:[L-ri(150,190),ri(290,320)],r:[L-ri(5,8),ri(240,260)],f:[Math.min(L+100,870),255],d:defsAt(L,y),k:K,goal:true,why:'Only his arm was ahead. Arms don\'t count for offside.'}}
+    else if(t==='shoulder'){
+      c={t:3,brief:`Through ball. Look closely at blue <strong>#${n}</strong>.`,p:[L-ri(150,190),ri(290,320)],r:[L+ri(7,10),ri(240,260)],f:[Math.min(L+100,870),255],d:defsAt(L,y),k:K,goal:false,why:'His head and shoulder were ahead. Anything you can score with counts.'}}
+    else if(t==='offPitch'){const ds=defsAt(L,y);ds[2]=[942,ri(360,400)];
+      c={t:3,brief:`An orange defender has stepped off the pitch. Watch blue <strong>#${n}</strong>.`,p:[L-ri(150,190),ri(290,320)],r:[L+ri(30,50),ri(240,260)],f:[Math.min(L+110,875),255],d:ds,k:[ri(Math.max(L+70,885),900),ri(260,280)],goal:true,why:'A defender off the pitch still counts as on the goal line, so he was onside.'}}
+    else if(t==='twoRunners'){
+      c={t:3,brief:`Two blue runners. <strong>#${n}</strong> takes it.`,p:[L-ri(150,190),ri(290,320)],r:[L-ri(10,25),ri(290,310)],f:[Math.min(L+100,870),275],decoy:[L+ri(40,60),ri(205,225)],rn:n,dn:d2,d:defsAt(L,y),k:K,goal:true,why:`#${d2} was offside but never touched it. #${n}, who scored, was onside.`}}
+    if(!c)continue;
+    const refRight=r()<.72;
+    c.ref=(c.goal===refRight)?'Goal given':'Flagged, no goal';
+    c.id='T'+(i+1);c.rn=c.rn||n;
+    out.push(c);
+  }
+  return out;
+}
+CASES.push(...generateCases(110));
 
 const cv=document.getElementById('pitch'),ctx=cv.getContext('2d'),W=960,H=540;
 const DPR=Math.min(window.devicePixelRatio||1,2);cv.width=W*DPR;cv.height=H*DPR;ctx.scale(DPR,DPR);
@@ -480,6 +544,7 @@ $('next').onclick=()=>{
   $('finalText').textContent=mode==='daily'?`${score} of 10 right in today's Daily 10.`:`${score} right before you ran out of lives.`;
   $('restart').hidden=mode==='daily';
   saveScore();
+  $('shareMsg').textContent='';
   const wrong=history.filter(h=>!h.ok);
   $('mistakes').innerHTML=wrong.length?wrong.map((h,i)=>`<div class="mistake" id="mk${i}"><span>${h.c.real?h.c.id+' · '+h.c.meta:'Training case '+h.c.id}<small>You said ${h.saidGoal?'goal':'no goal'}. It was ${h.c.goal?'a goal':'no goal'}.</small></span><button class="btn" data-i="${i}">Watch</button></div>`).join(''):'';
   $('reviewWhy').hidden=true;
@@ -500,6 +565,19 @@ function start(m){mode=m;lives=3;score=0;points=0;streak=0;C=null;reviewing=fals
   $('menu').hidden=true;$('rules').hidden=true;$('topnav').hidden=true;$('game').hidden=false;$('hdrGame').hidden=false;load(0)}
 function toMenu(){cancelAnimationFrame(raf);$('game').hidden=true;$('hdrGame').hidden=true;$('topnav').hidden=false;showSection('play');renderBoard();renderStatus();window.scrollTo(0,0)}
 $('restart').onclick=()=>start(mode);
+function shareText(){
+  const squares=history.map(h=>h.ok?(h.c.sup?'⭐':'🟩'):'🟥').join('');
+  const d=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'Europe/London'});
+  const head=mode==='daily'?`Flag Up 🚩 Daily 10 · ${d}`:`Flag Up 🚩 Unlimited`;
+  const line=mode==='daily'?`${score}/10 right · ${points} pts`:`${score} right · ${points} pts`;
+  return `${head}\n${squares}\n${line}\nhttps://flagup100.github.io`;
+}
+$('share').onclick=async()=>{
+  const text=shareText();
+  try{if(navigator.share){await navigator.share({text});$('shareMsg').textContent='';return}}catch(e){if(e&&e.name==='AbortError')return}
+  try{await navigator.clipboard.writeText(text);$('shareMsg').textContent='Copied. Paste it in your group chat.'}
+  catch(e){$('shareMsg').textContent=text}
+};
 $('toMenu').onclick=toMenu;
 let pendingMode=null;
 function needsName(){return backend==='supabase'&&!(myName()&&cleanName(myName()))}
