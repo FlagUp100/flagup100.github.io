@@ -63,7 +63,29 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:16/9}
 .mistake.on{border-color:var(--flag)}
 .mistake span{min-width:0}
 .mistake small{display:block;color:var(--muted)}
-.menu,#game{display:grid;gap:16px}
+.menu,#game,.rules,.gate{display:grid;gap:16px}
+.topnav{display:flex;gap:6px;flex-wrap:wrap}
+.topnav .btn[aria-current="page"]{background:var(--chalk);color:var(--night)}
+.rules section{background:var(--panel);border-radius:6px;padding:18px;display:grid;gap:10px}
+.rules h2{font-family:var(--display);font-size:1.7rem;text-transform:uppercase;margin:0;line-height:1}
+.rules h3{font-family:var(--display);font-size:1.25rem;text-transform:uppercase;margin:6px 0 0;color:var(--flag);letter-spacing:.02em}
+.rules p,.rules li{color:var(--muted);max-width:66ch;margin:0}
+.rules p strong,.rules li strong{color:var(--chalk)}
+.rules ul{margin:0;padding-left:1.2em;display:grid;gap:6px}
+.rules .law{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.rules .law div{background:var(--night);border-radius:4px;padding:12px;border-left:3px solid var(--right)}
+.rules .law div.no{border-left-color:var(--wrong)}
+.rules .law b{display:block;color:var(--chalk);margin-bottom:4px}
+.rules .law span{color:var(--muted);font-size:.9rem}
+.diagram{background:#1f4a2e;border-radius:4px;overflow:hidden}
+.diagram svg{display:block;width:100%;height:auto}
+.gate{background:var(--panel);border:1px solid var(--flag);border-radius:6px;padding:20px;max-width:520px}
+.gate h2{font-family:var(--display);font-size:1.8rem;text-transform:uppercase;margin:0;line-height:1}
+.gate p{color:var(--muted);margin:0}
+.gate input{font:500 1.1rem var(--body);background:var(--night);color:var(--chalk);border:1px solid var(--line);border-radius:4px;padding:10px 12px;width:100%;box-sizing:border-box}
+.gate input:focus-visible{outline:2px solid var(--flag);outline-offset:1px}
+.gate .err{color:var(--wrong);min-height:1.2em;font-size:.9rem}
+@media (max-width:620px){.rules .law{grid-template-columns:1fr}}
 #game[hidden]{display:none}
 .modes{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .mode{display:grid;gap:6px;padding:18px;background:var(--panel);border:1px solid var(--line);border-radius:6px;color:var(--chalk);text-align:left;cursor:pointer;font:inherit;transition:border-color .15s}
@@ -106,6 +128,72 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:16/9}
     <h1>Flag <span>up</span></h1>
     <div class="case" id="hdrGame" hidden><span class="pts" id="pts">0</span> PTS<br><span id="streak" style="color:var(--flag)"></span><br><span id="caseLabel"></span><br><span id="caseMeta"></span><br><span class="tag" id="caseTag"></span><div class="lives" id="lives" aria-label="Lives left"></div></div>
   </header>
+
+  <nav class="topnav" id="topnav" aria-label="Sections"><button class="btn" id="navPlay" aria-current="page">Play</button><button class="btn" id="navRules">Rules</button></nav>
+
+  <section class="gate" id="gate" hidden aria-labelledby="gateTitle">
+    <h2 id="gateTitle">Who's reffing?</h2>
+    <p>Pick a name for the leaderboard. Up to 20 characters, and keep it clean.</p>
+    <label for="gateName" class="note">Your name</label>
+    <input id="gateName" maxlength="20" placeholder="e.g. Owen" autocomplete="nickname">
+    <div class="err" id="gateErr" aria-live="polite"></div>
+    <div class="row"><button class="btn primary" id="gateGo">Kick off</button><button class="btn" id="gateBack">Back</button></div>
+  </section>
+
+  <article class="rules" id="rules" hidden>
+    <section>
+      <h2>The offside law</h2>
+      <p>A player is <strong>offside</strong> if, at the moment a teammate plays or touches the ball, they're in an offside position <strong>and</strong> they get involved in play. Being in an offside position on its own isn't an offence.</p>
+      <div class="diagram" aria-label="Diagram: the attacker beyond the second-last defender is offside; the one level with it is onside">
+        <svg viewBox="0 0 600 200" xmlns="http://www.w3.org/2000/svg">
+          <rect width="600" height="200" fill="#235334"/>
+          <rect x="20" y="20" width="560" height="160" fill="none" stroke="rgba(232,239,230,.7)" stroke-width="2"/>
+          <line x1="580" y1="75" x2="580" y2="125" stroke="#e8efe6" stroke-width="5"/>
+          <line x1="400" y1="20" x2="400" y2="180" stroke="#f2c230" stroke-width="2" stroke-dasharray="7 6"/>
+          <text x="404" y="36" fill="#f2c230" font-family="JetBrains Mono, monospace" font-size="11">2ND-LAST DEFENDER</text>
+          <circle cx="400" cy="70" r="11" fill="#ff8a5c"/><circle cx="380" cy="140" r="11" fill="#ff8a5c"/><circle cx="560" cy="100" r="11" fill="#c9d94a"/>
+          <circle cx="400" cy="110" r="11" fill="#6fb3ff"/><text x="400" y="114" text-anchor="middle" font-family="Barlow, sans-serif" font-size="11" font-weight="600" fill="#0d1410">9</text>
+          <circle cx="450" cy="155" r="11" fill="#6fb3ff"/><text x="450" y="159" text-anchor="middle" font-family="Barlow, sans-serif" font-size="11" font-weight="600" fill="#0d1410">11</text>
+          <circle cx="220" cy="100" r="11" fill="#6fb3ff"/><circle cx="230" cy="106" r="5" fill="#fff"/>
+          <text x="340" y="96" text-anchor="end" fill="#58c48a" font-family="JetBrains Mono, monospace" font-size="11">#9 LEVEL = ONSIDE</text>
+          <text x="468" y="172" fill="#e0503f" font-family="JetBrains Mono, monospace" font-size="11">#11 OFFSIDE POSITION</text>
+        </svg>
+      </div>
+      <h3>Offside position</h3>
+      <ul>
+        <li>You're in an offside position if any part you can score with (head, body, feet) is <strong>nearer the goal line than both the ball and the second-last opponent</strong>. The keeper usually counts as the last one.</li>
+        <li><strong>Level is onside.</strong> Level with the second-last defender, or level with the ball, is fine.</li>
+        <li><strong>Arms and hands don't count.</strong> An arm ahead of the line isn't offside.</li>
+        <li>You <strong>can't be offside in your own half</strong>.</li>
+        <li>A defender who steps <strong>off the pitch</strong> still counts as standing on their goal line.</li>
+      </ul>
+      <h3>When it becomes an offence</h3>
+      <div class="law">
+        <div class="no"><b>Playing the ball</b><span>Touching or playing a pass from a teammate.</span></div>
+        <div class="no"><b>Blocking the keeper</b><span>Standing in their line of sight, or challenging them for the ball.</span></div>
+        <div class="no"><b>Gaining an advantage</b><span>Playing a rebound off the post, the bar or a save.</span></div>
+      </div>
+      <h3>When it's never offside</h3>
+      <ul>
+        <li>Straight from a <strong>throw-in</strong>, a <strong>corner</strong> or a <strong>goal kick</strong>.</li>
+        <li>When the ball comes off a defender who <strong>deliberately played it</strong>. A block, deflection or save doesn't count as deliberate, so offside still applies then.</li>
+        <li>A player who was offside but <strong>stayed out of it</strong>, not touching the ball or affecting anyone.</li>
+      </ul>
+      <p>It's all judged <strong>the moment the ball is played</strong>, not when the player receives it.</p>
+    </section>
+    <section>
+      <h2>How Flag Up works</h2>
+      <ul>
+        <li>Watch the clip at full speed. You get <strong>one replay</strong>.</li>
+        <li>Call it: <strong>Flag up</strong> (no goal) or <strong>Play on</strong> (goal stands).</li>
+        <li>A right call scores <strong>10 points</strong>, and each one in a row adds 10 more, up to <strong>50</strong>. A wrong call resets your streak.</li>
+        <li>Every <strong>5th case is super hard</strong>: faster, and worth double.</li>
+        <li><strong>Daily 10:</strong> the same 10 calls for everyone, new at midnight UK time, one go each.</li>
+        <li><strong>Unlimited:</strong> calls keep coming and keep getting faster. Three wrong and you're out.</li>
+        <li><strong>Real cases</strong> are famous pre-VAR calls. Player positions are approximate.</li>
+      </ul>
+    </section>
+  </article>
 
   <section class="menu" id="menu">
     <div class="modes">
@@ -409,12 +497,32 @@ function review(list,i){
 }
 function showPts(){$('pts').textContent=points;$('streak').textContent=streak>1?`${streak} in a row · next right call +${Math.min(streak+1,5)*10}`:'';}
 function start(m){mode=m;lives=3;score=0;points=0;streak=0;C=null;reviewing=false;newOrder();
-  $('menu').hidden=true;$('game').hidden=false;$('hdrGame').hidden=false;load(0)}
-function toMenu(){cancelAnimationFrame(raf);$('game').hidden=true;$('hdrGame').hidden=true;$('menu').hidden=false;renderBoard();renderStatus();window.scrollTo(0,0)}
+  $('menu').hidden=true;$('rules').hidden=true;$('topnav').hidden=true;$('game').hidden=false;$('hdrGame').hidden=false;load(0)}
+function toMenu(){cancelAnimationFrame(raf);$('game').hidden=true;$('hdrGame').hidden=true;$('topnav').hidden=false;showSection('play');renderBoard();renderStatus();window.scrollTo(0,0)}
 $('restart').onclick=()=>start(mode);
 $('toMenu').onclick=toMenu;
-$('playDaily').onclick=()=>start('daily');
-$('playUnlimited').onclick=()=>start('unlimited');
+let pendingMode=null;
+function needsName(){return backend==='supabase'&&!(myName()&&cleanName(myName()))}
+function ask(m){if(!needsName()){start(m);return}
+  pendingMode=m;$('menu').hidden=true;$('topnav').hidden=true;$('gate').hidden=false;$('gateErr').textContent='';$('gateName').value=myName();$('gateName').focus()}
+$('playDaily').onclick=()=>ask('daily');
+$('playUnlimited').onclick=()=>ask('unlimited');
+function gateSubmit(){
+  const v=$('gateName').value.trim().slice(0,20);
+  if(!v){$('gateErr').textContent='Type a name first.';return}
+  if(!cleanName(v)){$('gateErr').textContent='That name isn\'t allowed. Pick another.';return}
+  try{localStorage.setItem('flagup-name',v)}catch(e){}
+  $('playerName').value=v;$('gate').hidden=true;$('topnav').hidden=false;start(pendingMode)}
+$('gateGo').onclick=gateSubmit;
+$('gateName').addEventListener('keydown',e=>{if(e.key==='Enter')gateSubmit()});
+$('gateBack').onclick=()=>{$('gate').hidden=true;$('topnav').hidden=false;$('menu').hidden=false};
+function showSection(which){
+  $('menu').hidden=which!=='play';$('rules').hidden=which!=='rules';
+  $('navPlay').toggleAttribute('aria-current',which==='play');$('navRules').toggleAttribute('aria-current',which==='rules');
+  if(which==='play'){$('navPlay').setAttribute('aria-current','page')}else{$('navRules').setAttribute('aria-current','page')}
+  window.scrollTo(0,0)}
+$('navPlay').onclick=()=>showSection('play');
+$('navRules').onclick=()=>showSection('rules');
 
 /* ---------- Leaderboard ----------
    Inside Claude: the artifact's own store (players/<id> = {best, daily:{date:pts}}).
