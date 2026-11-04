@@ -115,7 +115,7 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:16/9}
     <div class="board">
       <h2>Leaderboard</h2>
       <div class="tabs" role="tablist"><button class="btn" role="tab" id="tabDaily" aria-selected="true">Today's Daily 10</button><button class="btn" role="tab" id="tabBest" aria-selected="false">Unlimited best</button></div>
-      <div class="who" id="whoRow" hidden><label for="playerName">Your name on the board</label><input id="playerName" maxlength="20" placeholder="e.g. Owen" autocomplete="nickname"></div>
+      <div class="who" id="whoRow" hidden><label for="playerName">Your name on the board</label><input id="playerName" maxlength="20" placeholder="e.g. Owen" autocomplete="nickname"><span class="note" id="nameMsg" aria-live="polite"></span></div>
       <ol id="boardList"></ol>
       <p class="note" id="boardNote">Loading scores…</p>
     </div>
@@ -426,9 +426,26 @@ const LOCAL='flagup-local';
 function local(){try{return JSON.parse(localStorage.getItem(LOCAL))||{best:0,daily:{}}}catch(e){return{best:0,daily:{}}}}
 function saveLocal(v){try{localStorage.setItem(LOCAL,JSON.stringify(v))}catch(e){}}
 function deviceId(){try{let id=localStorage.getItem('flagup-id');if(!id){id='p'+Math.random().toString(36).slice(2,12);localStorage.setItem('flagup-id',id)}return id}catch(e){return'p-anon'}}
+/* Name filter. The same rules run in the database, so they can't be skipped. */
+const BAD_ANY=['fuck','cunt','shit','wank','nigg','faggot','rapist','hitler','nazi','paedo','pedo','bastard','whore','bitch','twat','bollock','bellend','dildo','penis','vagina','porn','cum'];
+const BAD_WORD=['ass','arse','arsehole','asshole','dick','dickhead','cock','cocks','tit','tits','prick','slag','slut','piss','knob','knobhead','nonce','retard','spastic','spaz','fag','fags','paki','coon','chink','kike','spic','tranny','dyke','rape','sex','nob','wog','gook'];
+const OK_WORDS=['scunthorpe','cumbria','cumberland','arsenal','dickson','dickinson','hitchcock','cockburn','sussex','essex','middlesex','cocker','peacock','titus','tito','shitake'];
+function cleanName(name){
+  const norm=name.toLowerCase().replace(/[0134578@$!|]/g,c=>({'0':'o','1':'i','3':'e','4':'a','5':'s','7':'t','8':'b','@':'a','$':'s','!':'i','|':'i'}[c]));
+  let compact=norm.replace(/[^a-z]/g,'');
+  OK_WORDS.forEach(w=>{compact=compact.split(w).join('')});
+  if(BAD_ANY.some(w=>compact.includes(w)))return false;
+  const tokens=norm.split(/[^a-z]+/).filter(Boolean);
+  if(tokens.some(t=>BAD_WORD.includes(t))||BAD_WORD.includes(compact))return false;
+  return true;
+}
 function myName(){try{return localStorage.getItem('flagup-name')||''}catch(e){return''}}
 $('playerName').value=myName();
-$('playerName').addEventListener('change',e=>{try{localStorage.setItem('flagup-name',e.target.value.trim().slice(0,20))}catch(err){}});
+$('playerName').addEventListener('change',e=>{
+  const v=e.target.value.trim().slice(0,20);
+  if(v&&!cleanName(v)){$('nameMsg').textContent='That name isn\'t allowed. Pick another.';e.target.value='';try{localStorage.removeItem('flagup-name')}catch(err){}return}
+  $('nameMsg').textContent=v?'Saved.':'';
+  try{localStorage.setItem('flagup-name',v)}catch(err){}});
 function renderStatus(){
   const l=local(),d=l.daily[today()];
   $('dailyStatus').textContent=d!=null?`Played today: ${d} pts. New one tomorrow.`:'Not played yet today';
@@ -469,7 +486,7 @@ async function saveScore(){
   saveLocal(l);
   try{
     if(backend==='supabase'){
-      const name=myName()||'Anonymous';
+      const name=(myName()&&cleanName(myName()))?myName():'Anonymous';
       const {error}=await sb.from('scores').insert({player_id:myId,player_name:name,mode,day:key,points});
       if(error)throw error;
       await loadRows();
