@@ -1,0 +1,506 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0d1410"><style>[hidden]{display:none!important}body{margin:0}</style></head><body>
+<title>Flag Up</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one floodlit match screen. Clip plays at full speed, one replay, you call it, then the line is drawn. Single dark theme by choice. */
+:root{
+  --night:#0d1410; --panel:#14201a; --chalk:#e8efe6; --muted:#9bb0a0;
+  --flag:#f2c230; --wrong:#e0503f; --right:#58c48a; --line:rgba(232,239,230,.14);
+  --display:"Big Shoulders Display","Arial Narrow",sans-serif;
+  --body:"Barlow",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+body{background:var(--night);color:var(--chalk);font-family:var(--body);font-size:16px;line-height:1.5}
+.wrap{max-width:880px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:16px}
+header{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(2.4rem,8vw,3.8rem);line-height:.9;margin:0;text-transform:uppercase}
+h1 span{color:var(--flag)}
+.case{font-family:var(--mono);font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;text-align:right}
+.case b{color:var(--chalk);font-weight:500}
+.tag{display:inline-block;padding:1px 6px;border-radius:3px;border:1px solid var(--line);margin-top:4px}
+.tag.real{border-color:var(--flag);color:var(--flag)}
+.lives{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+.life{width:14px;height:20px;position:relative}
+.life::before{content:"";position:absolute;left:0;top:0;width:2px;height:20px;background:var(--chalk)}
+.life::after{content:"";position:absolute;left:2px;top:1px;width:12px;height:9px;background:var(--flag)}
+.life.lost{opacity:.2}
+.stage.sup{border-color:var(--flag);box-shadow:0 0 0 2px var(--flag)}
+.stage{position:relative;border-radius:6px;overflow:hidden;border:1px solid var(--line);background:#1f4a2e}
+canvas{display:block;width:100%;height:auto;aspect-ratio:16/9}
+.hud{position:absolute;left:12px;top:10px;font-family:var(--mono);font-size:.75rem;letter-spacing:.06em;background:rgba(13,20,16,.75);padding:4px 8px;border-radius:3px}
+.hud.freeze{color:var(--flag)}
+.brief{color:var(--muted);margin:0;max-width:62ch}
+.brief strong{color:var(--chalk);font-weight:600}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{font:600 .95rem var(--body);background:transparent;color:var(--chalk);border:1px solid var(--line);border-radius:4px;padding:8px 14px;cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--chalk)}
+.btn:disabled{opacity:.35;cursor:default}
+.btn.primary{background:var(--chalk);color:var(--night);border-color:var(--chalk)}
+.btn:focus-visible,.call:focus-visible{outline:2px solid var(--flag);outline-offset:3px}
+.calls{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.call{display:flex;align-items:center;gap:14px;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:6px;color:var(--chalk);font:600 1.05rem var(--body);cursor:pointer;text-align:left;transition:transform .15s,border-color .15s}
+.call small{display:block;font:400 .85rem var(--body);color:var(--muted)}
+.call:hover:not(:disabled){transform:translateY(-2px);border-color:var(--chalk)}
+.call:disabled{cursor:default;opacity:.4}
+.call.chosen{opacity:1;border-color:var(--chalk)}
+.icon{flex:none;width:34px;height:40px;position:relative}
+.icon.flagup::before{content:"";position:absolute;left:4px;top:0;width:3px;height:40px;background:var(--chalk)}
+.icon.flagup::after{content:"";position:absolute;left:7px;top:2px;width:24px;height:16px;background:linear-gradient(135deg,var(--flag) 50%,var(--wrong) 50%)}
+.icon.goal{border:3px solid var(--chalk);border-bottom:none;height:26px;margin-top:8px;background:repeating-linear-gradient(90deg,transparent 0 5px,var(--line) 5px 6px)}
+.verdict{background:var(--panel);border-top:3px solid var(--wrong);padding:18px;border-radius:0 0 6px 6px;display:grid;gap:12px}
+.verdict.good{border-top-color:var(--right)}
+.verdict h3{font-family:var(--display);font-size:2rem;margin:0;text-transform:uppercase;line-height:1}
+.verdict p{margin:0;max-width:62ch;color:var(--muted)}
+.verdict p strong{color:var(--chalk)}
+.rows{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-family:var(--mono);font-size:.85rem;margin:0}
+.rows dt{color:var(--muted)}.rows dd{margin:0;min-width:0}
+.final{text-align:center;padding:28px 18px;background:var(--panel);border-radius:6px;display:grid;gap:10px;justify-items:center}
+
+.mistakes{display:grid;gap:8px;width:100%;max-width:560px;text-align:left}
+.mistake{display:flex;gap:12px;align-items:center;justify-content:space-between;background:var(--night);border:1px solid var(--line);border-radius:4px;padding:10px 12px}
+.mistake.on{border-color:var(--flag)}
+.mistake span{min-width:0}
+.mistake small{display:block;color:var(--muted)}
+.menu,#game{display:grid;gap:16px}
+#game[hidden]{display:none}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mode{display:grid;gap:6px;padding:18px;background:var(--panel);border:1px solid var(--line);border-radius:6px;color:var(--chalk);text-align:left;cursor:pointer;font:inherit;transition:border-color .15s}
+.mode:hover:not(:disabled){border-color:var(--chalk)}
+.mode:disabled{cursor:default;opacity:.6}
+.mode b{font-family:var(--display);font-size:1.8rem;text-transform:uppercase;line-height:1}
+.mode span{color:var(--muted);font-size:.9rem}
+.mode .status{font-family:var(--mono);font-size:.75rem;color:var(--flag)}
+.board{background:var(--panel);border-radius:6px;padding:16px;display:grid;gap:10px}
+.board h2{font-family:var(--display);font-size:1.6rem;text-transform:uppercase;margin:0}
+.tabs{display:flex;gap:6px}
+.tabs .btn[aria-selected="true"]{background:var(--chalk);color:var(--night)}
+.board ol{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.who{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.who label{color:var(--muted);font-size:.9rem}
+.who input{font:500 1rem var(--body);background:var(--night);color:var(--chalk);border:1px solid var(--line);border-radius:4px;padding:8px 10px;min-width:0;flex:1;max-width:240px}
+.who input:focus-visible{outline:2px solid var(--flag);outline-offset:1px}
+.board li:nth-child(1) .rk{background:var(--flag);color:var(--night)}
+.board li:nth-child(2) .rk{background:#c9d2cc;color:var(--night)}
+.board li:nth-child(3) .rk{background:#c98a5c;color:var(--night)}
+.board li:nth-child(-n+3){padding-block:12px}
+.board li:nth-child(1) .nm,.board li:nth-child(1) .pt{font-weight:600;font-size:1.1rem}
+.board li .rk{display:grid;place-items:center;border-radius:50%;width:1.8em;height:1.8em;background:var(--panel);font-size:.8rem}
+.board li{align-items:center}
+.board li{display:grid;grid-template-columns:2.2em 1fr auto;gap:10px;padding:8px 10px;border-radius:4px;background:var(--night);font-variant-numeric:tabular-nums}
+.board li.me{outline:1px solid var(--flag)}
+.board li .rk{font-family:var(--mono);color:var(--muted)}
+.board li .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board li .pt{font-family:var(--mono)}
+.note{color:var(--muted);font-size:.85rem;margin:0}
+.pts{font-family:var(--display);font-weight:800;font-size:1.6rem;color:var(--chalk);line-height:1}
+@media (max-width:520px){.modes{grid-template-columns:1fr}}
+.final .big{font-family:var(--display);font-weight:800;font-size:4rem;line-height:1}
+@media (max-width:520px){.calls{grid-template-columns:1fr}.rows{grid-template-columns:1fr}.rows dd{margin-bottom:6px}}
+@media (prefers-reduced-motion:reduce){.call{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Flag <span>up</span></h1>
+    <div class="case" id="hdrGame" hidden><span class="pts" id="pts">0</span> PTS<br><span id="streak" style="color:var(--flag)"></span><br><span id="caseLabel"></span><br><span id="caseMeta"></span><br><span class="tag" id="caseTag"></span><div class="lives" id="lives" aria-label="Lives left"></div></div>
+  </header>
+
+  <section class="menu" id="menu">
+    <div class="modes">
+      <button class="mode" id="playDaily"><b>Daily 10</b><span>The same 10 calls for everyone today. One go each.</span><span class="status" id="dailyStatus"></span></button>
+      <button class="mode" id="playUnlimited"><b>Unlimited</b><span>Calls keep coming and keep getting faster. Three lives.</span><span class="status" id="bestStatus"></span></button>
+    </div>
+    <div class="board">
+      <h2>Leaderboard</h2>
+      <div class="tabs" role="tablist"><button class="btn" role="tab" id="tabDaily" aria-selected="true">Today's Daily 10</button><button class="btn" role="tab" id="tabBest" aria-selected="false">Unlimited best</button></div>
+      <div class="who" id="whoRow" hidden><label for="playerName">Your name on the board</label><input id="playerName" maxlength="20" placeholder="e.g. Owen" autocomplete="nickname"></div>
+      <ol id="boardList"></ol>
+      <p class="note" id="boardNote">Loading scores…</p>
+    </div>
+  </section>
+
+  <div id="game" hidden>
+  <div class="stage" id="stage">
+    <canvas id="pitch" width="960" height="540" aria-label="Top-down replay of an attacking move"></canvas>
+    <div class="hud" id="hud">LIVE</div>
+  </div>
+
+  <div class="row">
+    <button class="btn" id="replay" disabled>Replay (1 left)</button>
+    <p class="brief" id="brief"></p>
+  </div>
+
+  <div class="calls">
+    <button class="call" id="callNo" data-goal="0"><span class="icon flagup"></span><span>Flag up<small>No goal</small></span></button>
+    <button class="call" id="callYes" data-goal="1"><span class="icon goal"></span><span>Play on<small>Goal stands</small></span></button>
+  </div>
+
+  <div class="verdict" id="verdict" hidden>
+    <h3 id="vTitle"></h3>
+    <p id="vText"></p>
+    <dl class="rows">
+      <dt>Your call</dt><dd id="vYou"></dd>
+      <dt>Officials gave</dt><dd id="vRef"></dd>
+      <dt>Correct call</dt><dd id="vRight"></dd>
+      <dt id="vMatchLabel">The match</dt><dd id="vMatch"></dd>
+    </dl>
+    <div class="row"><button class="btn" id="showLine">Replay with the line</button><button class="btn primary" id="next">Next case</button></div>
+  </div>
+
+  <div class="final" id="final" hidden>
+    <div class="big" id="finalScore"></div>
+    <p class="brief" id="finalText"></p>
+    <div class="mistakes" id="mistakes"></div>
+    <p class="brief" id="reviewWhy" hidden></p>
+    <div class="row" style="justify-content:center"><button class="btn primary" id="restart">Play again</button><button class="btn" id="toMenu">Leaderboard</button></div>
+  </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+/* Pitch: attacking right. Halfway x=180, goal line x=920, box x 700–920.
+   Case spec (positions at the moment the ball is played):
+   p passer, r receiver/scorer, f where r finishes, d defenders, k keeper,
+   via ball goes here before r (post, keeper or defender), decoy [x,y] an extra blue player,
+   dk true = the line is drawn for the decoy, rs receiver start (else auto),
+   restart 'throw'|'corner'|'goalkick', arm true = only the arm is ahead,
+   goal = correct answer (true = goal stands), ref = what the officials gave. */
+const HALF=180, GOALX=920;
+const L4=[[760,220],[752,305],[738,380],[700,150]];
+const CASES=[
+// ---------- easy
+{t:1,id:'G1',brief:'Through ball. Watch blue <strong>#9</strong>.',p:[560,300],r:[732,250],f:[850,262],d:L4,k:[895,270],goal:true,ref:'Goal given',why:'He was clearly behind the last defender.'},
+{t:1,id:'G2',brief:'Through ball. Watch blue <strong>#9</strong>.',p:[560,300],r:[805,250],f:[860,262],d:L4,k:[895,270],goal:false,ref:'Flagged, no goal',why:'He was well beyond the last defender when the pass was played.'},
+{t:1,real:1,id:'Tevez',meta:'World Cup 2010',brief:'Ball slipped through. Watch blue <strong>#11</strong>.',p:[650,305],r:[820,248],f:[858,266],d:[[760,210],[750,300],[738,372],[700,150]],k:[892,266],goal:false,ref:'Goal given',why:'He was well beyond the defence. The replay was even shown on the stadium screen.',match:'Argentina v Mexico, World Cup last 16, June 2010. Tevez\'s goal stood; Argentina won 3-1.'},
+{t:1,real:1,id:'Ceulemans',meta:'World Cup 1986',brief:'Extra time. Ball played in to blue <strong>#11</strong>.',p:[640,330],r:[830,280],f:[870,275],d:[[770,230],[765,310],[740,380],[720,160]],k:[900,270],goal:false,ref:'Goal given',why:'He was reported to be yards offside.',match:'Belgium v USSR, World Cup last 16, June 1986. Belgium won 4-3 after extra time.'},
+{t:1,real:1,id:'Astle',meta:'Division One 1971',brief:'Break from halfway. Is blue <strong>#9</strong> off?',p:[420,300],r:[780,250],f:[860,262],d:[[700,220],[690,300],[680,370],[640,150]],k:[895,270],goal:false,ref:'Goal given',why:'The attack came from an offside position. The referee waved play on and the goal stood.',match:'West Brom v Leeds, April 1971. The goal cost Leeds in the title race.'},
+// ---------- medium
+{t:2,id:'G3',brief:'Through ball. Is blue <strong>#9</strong> ahead of the line?',p:[560,300],r:[760,250],f:[850,262],d:L4,k:[895,270],goal:true,ref:'Goal given',why:'He was exactly level with the second-last defender. Level is onside.'},
+{t:2,id:'G4',brief:'Orange push right up. Blue <strong>#9</strong> sprints from deep.',p:[90,330],r:[174,250],f:[850,262],d:[[160,220],[152,300],[146,380],[120,150]],k:[880,270],goal:true,ref:'Goal given',why:'He was in his own half when the ball was played. You can\'t be offside in your own half.'},
+{t:2,id:'G23',brief:'High line. Blue <strong>#9</strong> runs from deep.',p:[90,330],r:[175,240],f:[850,262],d:[[160,220],[152,300],[146,380],[120,150]],k:[880,270],goal:true,ref:'Flagged, no goal',why:'He was in his own half when the ball was played, so the flag was wrong.'},
+{t:2,id:'G5',brief:'Throw-in to blue <strong>#9</strong>.',restart:'throw',p:[700,42],r:[815,150],f:[860,240],d:L4,k:[895,265],goal:true,ref:'Goal given',why:'There\'s no offside from a throw-in.'},
+{t:2,id:'G24',brief:'Throw-in to blue <strong>#9</strong>.',restart:'throw',p:[700,42],r:[812,150],f:[860,240],d:L4,k:[895,265],goal:true,ref:'Flagged, no goal',why:'There\'s no offside from a throw-in, so the flag was wrong.'},
+{t:2,id:'G6',brief:'Corner. Blue <strong>#5</strong> stands on the goal line.',restart:'corner',p:[918,42],r:[906,250],f:[906,262],d:[[870,230],[860,300],[840,350],[800,200]],k:[898,285],goal:true,ref:'Goal given',why:'There\'s no offside straight from a corner.'},
+{t:2,id:'G7',brief:'Long goal kick. Blue <strong>#9</strong> is beyond the defence.',restart:'goalkick',p:[44,270],r:[640,250],f:[850,262],d:[[600,220],[595,300],[585,380],[560,150]],k:[890,270],goal:true,ref:'Goal given',why:'There\'s no offside straight from a goal kick.'},
+{t:2,id:'G8',brief:'Cutback from the byline to blue <strong>#9</strong>.',p:[905,385],r:[815,285],f:[820,280],d:[[790,240],[780,320],[760,380],[740,180]],k:[900,275],goal:true,ref:'Goal given',why:'He was behind the ball when it was played, so he can\'t be offside.'},
+{t:2,id:'G9',brief:'Shot from the edge. Watch blue <strong>#11</strong>.',p:[720,300],r:[805,232],f:[880,245],via:[920,238],d:L4,k:[895,272],goal:false,ref:'Flagged, no goal',why:'He was offside when the shot was hit. A rebound off the post doesn\'t reset it.'},
+{t:2,id:'G10',brief:'Shot, saved. Watch blue <strong>#11</strong>.',p:[720,300],r:[805,232],f:[870,250],via:[888,264],d:L4,k:[893,266],goal:false,ref:'Flagged, no goal',why:'He was offside when the shot was hit. A save doesn\'t reset it.'},
+{t:2,id:'G19',brief:'Blue <strong>#9</strong> was offside a moment ago. Is he now?',p:[560,300],rs:[830,250],r:[745,250],f:[850,262],d:L4,k:[895,270],goal:true,ref:'Goal given',why:'Offside is judged when each pass is played. He was back onside for this one.'},
+{t:2,real:1,id:'Drogba',meta:'Premier League 2009/10',brief:'Cross from the left. Watch blue <strong>#11</strong>.',p:[790,92],r:[858,272],f:[884,276],d:[[838,238],[832,300],[805,355],[790,120]],k:[896,240],goal:false,ref:'Goal given',why:'He was ahead of the last defender when the cross was hit.',match:'Man Utd v Chelsea, Old Trafford, April 2010. Chelsea won 2-1 and took the title by one point.'},
+{t:2,real:1,id:'Hernandez',meta:'Premier League 2012/13',brief:'Late on. Ball into the box for blue <strong>#14</strong>.',p:[760,460],r:[850,268],f:[882,270],d:[[830,240],[825,310],[800,360],[780,190]],k:[898,260],goal:false,ref:'Goal given',why:'He was offside. He admitted afterwards he probably was.',match:'Chelsea v Man Utd, October 2012. His goal won it 3-2.'},
+{t:2,real:1,id:'Mata',meta:'Premier League 2014/15',brief:'Header knocked on to blue <strong>#8</strong>.',p:[760,200],r:[830,290],f:[870,285],d:[[810,250],[805,320],[790,370],[770,180]],k:[900,265],goal:false,ref:'Goal given',why:'He was offside when the ball was knocked on. He admitted it afterwards.',match:'Man Utd v Liverpool, December 2014. United won 3-0.'},
+{t:2,real:1,id:'Ronaldo',meta:'Champions League 2016/17',brief:'Extra time. Ball in to blue <strong>#7</strong>.',p:[700,330],r:[840,260],f:[870,265],d:[[815,230],[810,305],[780,370],[760,170]],k:[900,270],goal:false,ref:'Goal given',why:'He was offside. Bayern called the night a robbery.',match:'Real Madrid v Bayern, Champions League quarter-final, April 2017. Real won 4-2 after extra time.'},
+{t:2,real:1,id:'Ramos',meta:'Champions League final 2016',brief:'Free kick from the right. Watch blue <strong>#4</strong>.',p:[700,470],r:[852,250],f:[880,256],d:[[830,240],[825,300],[815,350],[800,200]],k:[900,265],goal:false,ref:'Goal given',why:'He was offside. The referee later admitted it.',match:'Real Madrid v Atlético, Champions League final, May 2016. Real won on penalties.'},
+{t:2,real:1,id:'Dempsey',meta:'World Cup 2010',brief:'Ball across the box. Watch blue <strong>#8</strong>.',p:[740,140],r:[798,272],f:[860,270],d:[[805,240],[800,320],[780,370],[760,180]],k:[895,265],goal:true,ref:'Flagged, no goal',why:'He was onside. The flag was wrong.',match:'USA v Algeria, World Cup group, June 2010. USA still won 1-0 in stoppage time.'},
+{t:2,real:1,id:'Vertonghen',meta:'Premier League 2014/15',brief:'Late on. Blue <strong>#5</strong> breaks from deep.',p:[100,340],r:[172,250],f:[860,258],d:[[165,215],[158,300],[150,380],[130,150]],k:[885,265],goal:true,ref:'Flagged, no goal',why:'He was in his own half when the ball was played. Positions here are approximate.',match:'Spurs v Sunderland, January 2015. Spurs still won 2-1.'},
+// ---------- hard
+{t:3,id:'G11',brief:'Shot from distance. Blue <strong>#11</strong> is out on the far side.',p:[610,350],r:[700,300],f:[700,300],decoy:[860,440],dk:1,d:[[740,220],[735,310],[725,380],[690,150]],k:[895,280],goal:true,ref:'Goal given',why:'#11 was offside but nowhere near the play, so he wasn\'t interfering.'},
+{t:3,id:'G12',brief:'Shot from distance. Blue <strong>#11</strong> stands in front of the keeper.',p:[610,350],r:[700,300],f:[700,300],decoy:[872,272],dk:1,d:[[740,220],[735,310],[725,380],[690,150]],k:[903,270],goal:false,ref:'Flagged, no goal',why:'#11 was offside and blocking the keeper\'s view. That\'s interfering.'},
+{t:3,id:'G13',brief:'Orange <strong>#5</strong> tries to control the pass. Watch blue <strong>#9</strong>.',p:[580,300],via:[740,285],r:[805,240],f:[860,255],d:[[760,220],[740,290],[738,380],[700,150]],k:[895,270],goal:true,ref:'Goal given',why:'The defender deliberately played the ball. That resets offside.'},
+{t:3,id:'G14',brief:'Orange <strong>#5</strong> sticks out a leg to block. Watch blue <strong>#9</strong>.',p:[580,300],via:[740,285],r:[805,240],f:[860,255],d:[[760,220],[740,290],[738,380],[700,150]],k:[895,270],goal:false,ref:'Flagged, no goal',why:'A block or deflection isn\'t a deliberate play. He was still offside.'},
+{t:3,id:'G15',brief:'The keeper has rushed out. Watch blue <strong>#9</strong>.',p:[560,300],r:[765,250],f:[860,262],d:[[765,220],[765,310],[740,380],[700,150]],k:[790,265],goal:true,ref:'Goal given',why:'With the keeper out, the second-last player was an outfield defender. He was level with them.'},
+{t:3,id:'G16',brief:'Through ball. Look closely at blue <strong>#9</strong>.',arm:1,p:[560,300],r:[754,250],f:[850,262],d:L4,k:[895,270],goal:true,ref:'Goal given',why:'Only his arm was ahead. Arms don\'t count for offside.'},
+{t:3,id:'G17',brief:'Through ball. Look closely at blue <strong>#9</strong>.',p:[560,300],r:[768,250],f:[850,262],d:L4,k:[895,270],goal:false,ref:'Flagged, no goal',why:'His head and shoulder were ahead. Anything you can score with counts.'},
+{t:3,id:'G18',brief:'An orange defender has stepped off the pitch. Watch blue <strong>#9</strong>.',p:[600,300],r:[825,250],f:[870,262],d:[[942,380],[760,220],[752,305],[700,150]],k:[895,270],goal:true,ref:'Goal given',why:'A defender who steps off the pitch still counts as on the goal line, so #9 was onside.'},
+{t:3,id:'G20',brief:'Tight one. Watch blue <strong>#9</strong>.',p:[560,300],r:[773,250],f:[850,262],d:L4,k:[895,270],goal:false,ref:'Goal given',why:'He was half a yard off. The linesman missed it.'},
+{t:3,id:'G21',brief:'Tight one. Watch blue <strong>#9</strong>.',p:[560,300],r:[749,250],f:[850,262],d:L4,k:[895,270],goal:true,ref:'Flagged, no goal',why:'He was just behind the line. The flag was wrong.'},
+{t:3,id:'G22',brief:'Two blue runners. <strong>#9</strong> takes it.',p:[580,300],r:[745,300],f:[855,275],decoy:[812,215],d:L4,k:[895,270],goal:true,ref:'Flagged, no goal',why:'#11 was offside but never touched it. #9, who scored, was onside.'},
+{t:3,id:'G25',brief:'Blue <strong>#11</strong> is jogging back. <strong>#9</strong> scores.',p:[580,300],r:[742,250],f:[855,262],decoy:[835,410],dk:1,d:L4,k:[895,270],goal:true,ref:'Flagged, no goal',why:'#11 was offside but didn\'t touch the ball or affect anyone.'},
+{t:3,real:1,id:'Tommasi',meta:'World Cup 2002',brief:'Extra time. Through ball for blue <strong>#17</strong>.',p:[560,300],r:[760,250],f:[860,262],d:[[768,220],[762,305],[745,380],[700,150]],k:[895,270],goal:true,ref:'Flagged, no goal',why:'He was onside. It would have been a golden goal.',match:'Italy v South Korea, World Cup last 16, June 2002. Korea won in extra time.'},
+{t:3,real:1,id:'Dos Santos',meta:'World Cup 2014',brief:'Ball in behind for blue <strong>#10</strong>.',p:[700,150],r:[840,280],f:[870,275],d:[[850,250],[845,320],[820,370],[800,180]],k:[900,265],goal:true,ref:'Flagged, no goal',why:'He was onside. Mexico had two goals ruled out wrongly that day.',match:'Mexico v Cameroon, World Cup group, June 2014. Mexico still won 1-0.'},
+{t:3,real:1,id:'Sane',meta:'Champions League 2017/18',brief:'Ball comes off an orange player. Watch blue <strong>#19</strong>.',p:[700,330],via:[790,300],r:[850,270],f:[870,268],d:[[830,240],[790,300],[800,360],[760,180]],k:[900,265],goal:true,ref:'Flagged, no goal',why:'The ball came off a Liverpool player, so he wasn\'t offside.',match:'Man City v Liverpool, Champions League quarter-final, April 2018.'},
+{t:3,real:1,id:'Benteke',meta:'Premier League 2015/16',brief:'Cross from the right. Blue <strong>#9</strong> scores. Watch <strong>#10</strong>.',p:[740,460],r:[800,290],f:[850,280],decoy:[842,232],dk:1,dn:'10',d:[[820,250],[815,320],[790,370],[770,180]],k:[900,262],goal:false,ref:'Goal given',why:'#10 (Coutinho) was offside and went for the ball. That\'s interfering. The league admitted it.',match:'Liverpool v Bournemouth, August 2015. Liverpool won 1-0.'},
+{t:3,real:1,id:'Van Nistelrooy',meta:'Euro 2008',brief:'Ball across. One orange defender is off the pitch. Watch blue <strong>#9</strong>.',p:[760,150],r:[880,260],f:[885,262],d:[[942,380],[860,240],[850,320],[820,200]],k:[890,300],goal:true,ref:'Goal given',why:'The defender off the pitch still counted. It looked offside but the call was right.',match:'Netherlands v Italy, Euro 2008 group. UEFA backed the referee.'},
+{t:3,real:1,id:'Tiote',meta:'Premier League 2013/14',brief:'Volley from distance. Blue <strong>#11</strong> stands in front of the keeper.',p:[580,330],r:[680,290],f:[680,290],decoy:[878,272],dk:1,d:[[740,220],[735,310],[720,380],[690,150]],k:[903,270],goal:false,ref:'Flagged, no goal',why:'#11 (Gouffran) was offside in front of the keeper. The officials judged that interfering. It\'s still argued about.',match:'Newcastle v Man City, January 2014. City won 2-0.'},
+{t:3,real:1,id:'Ji',meta:'Premier League 2011/12',brief:'Last minute. Ball through for blue <strong>#10</strong>.',p:[640,330],r:[836,300],f:[870,285],d:[[830,240],[826,320],[800,370],[780,180]],k:[900,265],goal:false,ref:'Goal given',why:'He was fractionally offside.',match:'Sunderland v Man City, January 2012. Sunderland won 1-0.'},
+];
+
+const cv=document.getElementById('pitch'),ctx=cv.getContext('2d'),W=960,H=540;
+const DPR=Math.min(window.devicePixelRatio||1,2);cv.width=W*DPR;cv.height=H*DPR;ctx.scale(DPR,DPR);
+const $=id=>document.getElementById(id);
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let mode='unlimited',points=0,streak=0,gain=0,history=[],reviewing=false,order=[],n=0,phase='pre',t0=0,raf=0,lives=3,score=0,replays=1,decided=false,showLine=false,C,M;
+const PRE=1900,POST=1300;
+const speed=()=>reviewing?1:Math.min(1+n*0.04,1.8)+(C&&C.sup?.25:0);
+
+const clampGoalY=y=>Math.max(246,Math.min(294,y));
+// Build keyframe paths from a case spec.
+function build(c){
+  const back=c.restart?0:60, a=(x,y)=>[[0,x-back,y],[1,x,y]];
+  const m={def:c.d.map(([x,y])=>({pre:[[0,Math.min(x+28,950),y],[1,x,y]]}))};
+  m.keep={pre:[[0,c.k[0]+6,c.k[1]],[1,c.k[0],c.k[1]]]};
+  m.passer={pre:c.restart?[[0,...c.p],[1,...c.p]]:a(...c.p),n:c.restart==='goalkick'?'1':'6'};
+  const rs=c.rs||[c.r[0]-50,c.r[1]+10];
+  m.rec={pre:[[0,...rs],[1,...c.r]],post:[[0,...c.r],[.45,...c.f],[1,...c.f]],n:c.rn||(c.decoy?'9':numFrom(c.brief,'9'))};
+  if(c.decoy)m.decoy={pre:a(...c.decoy),post:[[0,...c.decoy],[1,c.decoy[0]-(c.id==='G25'?40:0),c.decoy[1]]],n:c.dn||'11'};
+  const gx=GOALX-2,gy=clampGoalY(c.f[1]);
+  const bp=c.restart?[c.p[0],c.p[1]]:[c.p[0]+8,c.p[1]+6];
+  m.ball={pre:c.restart?[[0,...bp],[1,...bp]]:[[0,bp[0]-back,bp[1]],[1,...bp]]};
+  const post=[[0,...bp]];
+  if(c.via){post.push([.25,...c.via]);post.push([.5,...c.f])}else post.push([.45,...c.f]);
+  post.push([.82,gx,gy],[1,gx,gy]);
+  m.ball.post=post;
+  m.keep.post=[[0,...c.k],[.7,c.k[0]-4,(c.k[1]+gy)/2]];
+  const drift=e=>{const a=e.pre[0],b=e.pre[e.pre.length-1];e.post=[[0,b[1],b[2]],[1,b[1]+(b[1]-a[1])*.5,b[2]+(b[2]-a[2])*.5]]};
+  m.def.forEach(drift);if(!c.restart)drift(m.passer);
+  return m;
+}
+function numFrom(brief,fallback){const ms=brief.match(/#(\d+)/g);if(!ms)return fallback;return ms[ms.length-1].slice(1)}
+
+const at=(k,t)=>{if(!k)return null;if(t<=k[0][0])return k[0].slice(1);for(let i=1;i<k.length;i++){if(t<=k[i][0]){const a=k[i-1],b=k[i],u=(t-a[0])/(b[0]-a[0]),e=u;return[a[1]+(b[1]-a[1])*e,a[2]+(b[2]-a[2])*e]}}return k[k.length-1].slice(1)};
+const pos=(e,ph,t)=>ph==='pre'?at(e.pre,t):(e.post?at(e.post,t):at(e.pre,1));
+
+function pitch(){
+  for(let i=0;i<10;i++){ctx.fillStyle=i%2?'#1f4a2e':'#235334';ctx.fillRect(i*W/10,0,W/10,H)}
+  ctx.strokeStyle='rgba(232,239,230,.75)';ctx.lineWidth=3;
+  ctx.strokeRect(40,40,880,H-80);
+  ctx.beginPath();ctx.moveTo(HALF,40);ctx.lineTo(HALF,H-40);ctx.stroke();
+  ctx.beginPath();ctx.arc(HALF,H/2,70,-Math.PI/2,Math.PI/2);ctx.stroke();
+  ctx.strokeRect(700,130,220,280);ctx.strokeRect(846,205,74,130);
+  ctx.beginPath();ctx.arc(700,H/2,55,Math.PI/2,Math.PI*1.5);ctx.stroke();
+  ctx.fillStyle='rgba(232,239,230,.75)';ctx.beginPath();ctx.arc(773,H/2,3,0,7);ctx.fill();
+  ctx.strokeStyle='#e8efe6';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(922,240);ctx.lineTo(922,300);ctx.stroke();
+}
+function man(x,y,col,num,ring,arm){
+  ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(x+4,y+6,17,9,0,0,7);ctx.fill();
+  if(arm){ctx.strokeStyle=col;ctx.lineWidth=6;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x+8,y-8);ctx.lineTo(x+26,y-14);ctx.stroke()}
+  if(ring){ctx.strokeStyle='#e8efe6';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,22,0,7);ctx.stroke()}
+  ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,15,0,7);ctx.fill();
+  if(num){ctx.fillStyle='#0d1410';ctx.font='600 14px Barlow, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(num,x,y+1)}
+}
+// Second-last opponent (keeper included); anyone off the pitch counts as on the goal line.
+function lineX(c){const xs=[...c.d.map(d=>d[0]),c.k[0]].map(x=>Math.min(x,GOALX)).sort((a,b)=>b-a);return xs[1]}
+function drawLines(c){
+  const lx=lineX(c), key=c.dk?c.decoy:c.r, kx=key[0];
+  const offPos=kx>lx&&kx>c.p[0]&&kx>HALF;
+  ctx.setLineDash([10,8]);ctx.lineWidth=3;
+  ctx.strokeStyle='#f2c230';ctx.beginPath();ctx.moveTo(lx,40);ctx.lineTo(lx,H-40);ctx.stroke();
+  ctx.strokeStyle=offPos?'#e0503f':'#58c48a';ctx.beginPath();ctx.moveTo(kx,40);ctx.lineTo(kx,H-40);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font='500 13px "JetBrains Mono", monospace';ctx.textBaseline='top';
+  const lab=(txt,x,col,align,y)=>{ctx.textAlign=align;const w=ctx.measureText(txt).width+12,bx=align==='right'?x-w-6:x+6;ctx.fillStyle='rgba(13,20,16,.85)';ctx.fillRect(bx,y,w,22);ctx.fillStyle=col;ctx.fillText(txt,align==='right'?x-12:x+12,y+4)};
+  const right=kx>=lx;
+  lab('2ND-LAST DEFENDER',lx,'#f2c230',right?'right':'left',48);
+  let txt=offPos?'OFFSIDE POSITION':'ONSIDE POSITION';
+  if(kx<=HALF&&kx>lx)txt='OWN HALF';
+  else if(kx>lx&&kx<=c.p[0])txt='BEHIND THE BALL';
+  lab(txt,kx,offPos?'#e0503f':'#58c48a',right?'left':'right',74);
+  if(c.restart&&kx>lx){lab('NO OFFSIDE FROM A '+c.restart.replace('goalkick','GOAL KICK').replace('throw','THROW-IN').toUpperCase(),kx,'#e8efe6',right?'left':'right',100)}
+}
+function render(now){
+  const c=C,m=M;
+  let ph=phase,t=1;
+  if(phase==='pre'||phase==='post')t=Math.min((now-t0)*speed()/(phase==='pre'?PRE:POST),1);
+  if(phase==='frozen')ph='pre';
+  if(phase==='done')ph='post';
+  ctx.clearRect(0,0,W,H);pitch();
+  if(phase==='frozen')drawLines(c);
+  m.def.forEach(d=>man(...pos(d,ph,t),'#ff8a5c',''));
+  man(...pos(m.keep,ph,t),'#c9d94a','1');
+  man(...pos(m.passer,ph,t),c.restart==='goalkick'?'#c9d94a':'#6fb3ff',m.passer.n);
+  if(m.decoy)man(...pos(m.decoy,ph,t),'#6fb3ff',m.decoy.n,c.dk&&phase==='frozen');
+  man(...pos(m.rec,ph,t),'#6fb3ff',m.rec.n,!c.dk&&phase==='frozen',c.arm&&(ph==='pre'));
+  const b=pos(m.ball,ph,t);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(b[0],b[1],6,0,7);ctx.fill();
+  const hud=$('hud');
+  hud.className='hud'+(phase==='done'||phase==='frozen'?' freeze':'');
+  hud.textContent=reviewing&&phase==='frozen'?'YOUR MISTAKE · AT THE PASS':phase==='pre'||phase==='post'?`LIVE · ${speed().toFixed(2).replace(/0$/,'')}×`:phase==='done'?'YOUR CALL':'AT THE MOMENT OF THE PASS';
+  if(phase==='pre'&&t>=1){phase='post';t0=now;raf=requestAnimationFrame(render);return}
+  if(phase==='post'&&t>=1){
+    if(showLine){setTimeout(()=>{phase='frozen';render(performance.now())},600);return}
+    phase='done';render(now);clipEnded();return}
+  if(phase==='pre'||phase==='post')raf=requestAnimationFrame(render);
+}
+function run(){cancelAnimationFrame(raf);phase='pre';t0=performance.now();setCalls(false);$('replay').disabled=true;raf=requestAnimationFrame(render)}
+function clipEnded(){if(!decided){setCalls(true);updReplay()}}
+function setCalls(on){document.querySelectorAll('.call').forEach(b=>{b.disabled=!on||decided})}
+function updReplay(){const r=$('replay');r.disabled=replays<1||decided;r.textContent=replays?`Replay (${replays} left)`:'No replays left'}
+function drawLives(){$('lives').innerHTML=[0,1,2].map(i=>`<span class="life${i>=lives?' lost':''}"></span>`).join('')}
+
+let rnd=Math.random;
+function seeded(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=h<<13|h>>>19}return()=>{h=Math.imul(h^h>>>16,2246822507);h=Math.imul(h^h>>>13,3266489909);return((h^=h>>>16)>>>0)/4294967296}}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Europe/London'});
+function newOrder(){
+  history=[];
+  rnd=mode==='daily'?seeded('flagup-'+today()):Math.random;
+  deckN=[];deckH=[];order=[];
+  for(let i=0;i<(mode==='daily'?10:40);i++)order.push(nextCase(i));
+}
+// Every 5th case is a super-hard one from the expert pool; the rest come from the easy and medium pools.
+let deckN=[],deckH=[];
+function nextCase(i){
+  const sup=(i+1)%5===0;
+  if(sup){if(!deckH.length)deckH=shuffle(CASES.filter(c=>c.t===3));return{...vary(deckH.pop()),sup:true}}
+  if(!deckN.length)deckN=shuffle(CASES.filter(c=>c.t<3));return vary(deckN.pop());
+}
+// Training cases get flipped top-to-bottom and nudged at random, so they never look the same twice. Real cases stay as they were.
+function vary(c){
+  if(c.real)return c;
+  const flip=rnd()<.5, dy=Math.round((rnd()-.5)*30);
+  const fy=y=>{let v=flip?H-y:y;if(c.restart!=='throw'&&c.restart!=='corner')v+=dy;return Math.max(50,Math.min(H-50,v))};
+  const P=q=>q&&[q[0],fy(q[1])];
+  return {...c,p:P(c.p),r:P(c.r),f:P(c.f),k:P(c.k),via:P(c.via),decoy:P(c.decoy),rs:P(c.rs),d:c.d.map(P)};
+}
+
+function load(i){
+  while(mode==='unlimited'&&i>=order.length)order.push(nextCase(order.length));
+  n=i;C=order[i];M=build(C);showLine=false;decided=false;replays=1;
+  $('caseLabel').innerHTML=(mode==='daily'?`Daily · case <b>${i+1}</b> of <b>10</b>`:`Unlimited · case <b>${i+1}</b>`)+` · <b>${speed().toFixed(2).replace(/0$/,'')}×</b>`;
+  showPts();
+  $('lives').hidden=mode==='daily';
+  $('caseMeta').textContent=C.real?C.meta:['','Easy','Medium','Hard'][C.t];
+  const tag=$('caseTag');tag.textContent=(C.sup?'SUPER HARD · DOUBLE POINTS · ':'')+(C.real?'Real case · positions approx.':'Training case');tag.className='tag'+(C.real||C.sup?' real':'');
+  $('stage').classList.toggle('sup',!!C.sup);
+  $('brief').innerHTML=C.brief;
+  $('verdict').hidden=true;$('final').hidden=true;
+  document.querySelectorAll('.call').forEach(b=>b.classList.remove('chosen'));
+  drawLives();run();
+}
+
+document.querySelectorAll('.call').forEach(btn=>btn.onclick=()=>{
+  const c=C,saidGoal=btn.dataset.goal==='1',ok=saidGoal===c.goal;
+  decided=true;gain=0;if(ok){score++;streak++;gain=Math.min(streak,5)*10*(c.sup?2:1);points+=gain}else{streak=0;if(mode==='unlimited')lives--}drawLives();showPts();
+  history.push({c,M,saidGoal,ok});
+  document.querySelectorAll('.call').forEach(b=>{b.disabled=true;b.classList.toggle('chosen',b===btn)});
+  updReplay();
+  const refRight=(c.ref==='Goal given')===c.goal;
+  const v=$('verdict');v.classList.toggle('good',ok);
+  $('vTitle').textContent=ok?`${refRight?'Spot on':'Better than the linesman'} · +${gain}`:mode==='daily'?'Wrong · streak lost':lives?'Life lost · streak lost':'Out of lives';
+  if(ok&&(streak>1||c.sup))$('vTitle').textContent+=` (${c.sup?'double points':''}${c.sup&&streak>1?', ':''}${streak>1?streak+' in a row':''})`;
+  $('vText').innerHTML=`<strong>${ok?'Right call.':'Wrong call.'}</strong> ${c.why}`;
+  $('vYou').textContent=saidGoal?'Play on, goal stands':'Flag up, no goal';
+  $('vRef').textContent=c.ref+(refRight?' (correct)':' (wrong)');
+  $('vRight').textContent=c.goal?'Goal stands':'No goal';
+  $('vMatchLabel').textContent=c.real?'The match':'Case type';
+  $('vMatch').textContent=c.real?c.match:'Training case, not a real match';
+  const last=mode==='daily'?n>=9:!lives;
+  $('next').textContent=last?'See your score':'Next case';
+  v.hidden=false;showLine=true;
+  cancelAnimationFrame(raf);phase='frozen';render(performance.now());
+  v.scrollIntoView({behavior:reduce?'auto':'smooth',block:'nearest'});
+});
+$('replay').onclick=()=>{if(replays<1)return;replays--;run()};
+$('showLine').onclick=()=>{cancelAnimationFrame(raf);phase='pre';t0=performance.now();raf=requestAnimationFrame(render)};
+$('next').onclick=()=>{
+  const done=mode==='daily'?n>=9:!lives;
+  if(!done){load(n+1);return}
+  $('verdict').hidden=true;$('final').hidden=false;
+  $('finalScore').textContent=points+' pts';
+  $('finalText').textContent=mode==='daily'?`${score} of 10 right in today's Daily 10.`:`${score} right before you ran out of lives.`;
+  $('restart').hidden=mode==='daily';
+  saveScore();
+  const wrong=history.filter(h=>!h.ok);
+  $('mistakes').innerHTML=wrong.length?wrong.map((h,i)=>`<div class="mistake" id="mk${i}"><span>${h.c.real?h.c.id+' · '+h.c.meta:'Training case '+h.c.id}<small>You said ${h.saidGoal?'goal':'no goal'}. It was ${h.c.goal?'a goal':'no goal'}.</small></span><button class="btn" data-i="${i}">Watch</button></div>`).join(''):'';
+  $('reviewWhy').hidden=true;
+  $('mistakes').querySelectorAll('button').forEach(b=>b.onclick=()=>review(wrong,+b.dataset.i));
+  $('final').scrollIntoView({behavior:reduce?'auto':'smooth',block:'nearest'});
+};
+// Replays a mistake: full clip at normal speed, then freezes on the moment of the pass with the line drawn.
+function review(list,i){
+  const h=list[i];reviewing=true;C=h.c;M=h.M;showLine=true;decided=true;
+  document.querySelectorAll('.mistake').forEach((el,j)=>el.classList.toggle('on',j===i));
+  $('brief').innerHTML=h.c.brief;
+  const w=$('reviewWhy');w.hidden=false;w.innerHTML='<strong>'+(h.c.goal?'Goal stands.':'No goal.')+'</strong> '+h.c.why;
+  document.querySelector('.stage').scrollIntoView({behavior:reduce?'auto':'smooth',block:'start'});
+  cancelAnimationFrame(raf);phase='pre';t0=performance.now();raf=requestAnimationFrame(render);
+}
+function showPts(){$('pts').textContent=points;$('streak').textContent=streak>1?`${streak} in a row · next right call +${Math.min(streak+1,5)*10}`:'';}
+function start(m){mode=m;lives=3;score=0;points=0;streak=0;C=null;reviewing=false;newOrder();
+  $('menu').hidden=true;$('game').hidden=false;$('hdrGame').hidden=false;load(0)}
+function toMenu(){cancelAnimationFrame(raf);$('game').hidden=true;$('hdrGame').hidden=true;$('menu').hidden=false;renderBoard();renderStatus();window.scrollTo(0,0)}
+$('restart').onclick=()=>start(mode);
+$('toMenu').onclick=toMenu;
+$('playDaily').onclick=()=>start('daily');
+$('playUnlimited').onclick=()=>start('unlimited');
+
+/* ---------- Leaderboard ----------
+   Inside Claude: the artifact's own store (players/<id> = {best, daily:{date:pts}}).
+   On your own website: Supabase. Paste your project URL and anon key below. */
+const SUPABASE_URL='https://slyfntfksvbsglvpsjxe.supabase.co';      // e.g. https://abcdefgh.supabase.co
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNseWZudGZrc3Zic2dsdnBzanhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM4MjQ2MTIsImV4cCI6MjEwOTQwMDYxMn0.fGs_bFmXJSjVXNfXv-G96bkOD2DcCfp0o7R4TqeHDi0'; // Project Settings → API → anon public key
+let backend=null,db=null,user=null,myId=null,rows=[],boardTab='daily',names={},sb=null;
+const LOCAL='flagup-local';
+function local(){try{return JSON.parse(localStorage.getItem(LOCAL))||{best:0,daily:{}}}catch(e){return{best:0,daily:{}}}}
+function saveLocal(v){try{localStorage.setItem(LOCAL,JSON.stringify(v))}catch(e){}}
+function deviceId(){try{let id=localStorage.getItem('flagup-id');if(!id){id='p'+Math.random().toString(36).slice(2,12);localStorage.setItem('flagup-id',id)}return id}catch(e){return'p-anon'}}
+function myName(){try{return localStorage.getItem('flagup-name')||''}catch(e){return''}}
+$('playerName').value=myName();
+$('playerName').addEventListener('change',e=>{try{localStorage.setItem('flagup-name',e.target.value.trim().slice(0,20))}catch(err){}});
+function renderStatus(){
+  const l=local(),d=l.daily[today()];
+  $('dailyStatus').textContent=d!=null?`Played today: ${d} pts. New one tomorrow.`:'Not played yet today';
+  $('playDaily').disabled=d!=null;
+  $('bestStatus').textContent=l.best?`Your best: ${l.best} pts`:'';
+}
+/* rows: [{id, name, daily:{date:pts}, best}] from either backend */
+async function loadRows(){
+  if(backend==='supabase'){
+    const [d,b]=await Promise.all([
+      sb.from('scores').select('player_id,player_name,points').eq('mode','daily').eq('day',today()).order('points',{ascending:false}).limit(50),
+      sb.from('scores').select('player_id,player_name,points').eq('mode','unlimited').order('points',{ascending:false}).limit(200)]);
+    if(d.error||b.error)throw d.error||b.error;
+    const map={};
+    const get=r=>map[r.player_id]||(map[r.player_id]={id:r.player_id,name:r.player_name,daily:{},best:null});
+    d.data.forEach(r=>{const p=get(r);p.daily[today()]=Math.max(p.daily[today()]??0,r.points)});
+    b.data.forEach(r=>{const p=get(r);p.best=Math.max(p.best??0,r.points)});
+    rows=Object.values(map);
+  }
+}
+async function renderBoard(){
+  const key=today();
+  const list=rows.map(p=>({id:p.id,name:p.name,pts:boardTab==='daily'?p.daily?.[key]:p.best})).filter(r=>typeof r.pts==='number').sort((a,b)=>b.pts-a.pts).slice(0,20);
+  if(backend==='claude'&&user&&list.length){try{const ps=await user.profiles(list.map(r=>r.id));list.forEach(r=>names[r.id]=ps[r.id]?.name||'Someone')}catch(e){}}
+  const ol=$('boardList');ol.textContent='';
+  list.forEach((r,i)=>{const li=document.createElement('li');if(r.id===myId)li.className='me';
+    const rk=document.createElement('span');rk.className='rk';rk.textContent=i+1;
+    const nm=document.createElement('span');nm.className='nm';nm.textContent=(r.name||names[r.id]||'Someone')+(r.id===myId?' (you)':'');
+    const pt=document.createElement('span');pt.className='pt';pt.textContent=r.pts+' pts';
+    li.append(rk,nm,pt);ol.append(li)});
+  if(!backend)$('boardNote').textContent='The leaderboard isn\'t switched on here yet. Your scores are saved on this device.';
+  else if(!list.length)$('boardNote').textContent=boardTab==='daily'?'No scores yet today. Play the Daily 10 to top the board.':'No scores yet. Play Unlimited to set the first one.';
+  else $('boardNote').textContent=boardTab==='daily'?'Resets at midnight, UK time.':'Everyone\'s best Unlimited run.';
+}
+async function saveScore(){
+  const l=local(),key=today();
+  if(mode==='daily'){if(l.daily[key]!=null)return;l.daily[key]=points}else{if(points<=(l.best||0)){saveLocal(l);return}l.best=points}
+  saveLocal(l);
+  try{
+    if(backend==='supabase'){
+      const name=myName()||'Anonymous';
+      const {error}=await sb.from('scores').insert({player_id:myId,player_name:name,mode,day:key,points});
+      if(error)throw error;
+      await loadRows();
+    }else if(backend==='claude'&&myId){
+      const ref=db.doc('players/'+myId);const snap=await ref.get();const cur=snap.exists?snap.data():{best:0,daily:{}};
+      const next={best:cur.best||0,daily:{...(cur.daily||{})}};
+      if(mode==='daily'){if(next.daily[key]!=null)return;next.daily[key]=points}else{if(points<=next.best)return;next.best=points}
+      await ref.set(next);
+    }
+  }catch(e){$('boardNote').textContent='Couldn\'t post your score. It\'s saved on this device.'}
+}
+$('tabDaily').onclick=()=>{boardTab='daily';$('tabDaily').setAttribute('aria-selected','true');$('tabBest').setAttribute('aria-selected','false');renderBoard()};
+$('tabBest').onclick=()=>{boardTab='best';$('tabBest').setAttribute('aria-selected','true');$('tabDaily').setAttribute('aria-selected','false');renderBoard()};
+renderStatus();
+(async()=>{
+  const inClaude=/claude/i.test(location.hostname)||!!window.claude;
+  if(!inClaude&&SUPABASE_URL&&SUPABASE_ANON_KEY&&window.supabase){
+    backend='supabase';sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);myId=deviceId();$('whoRow').hidden=false;
+    try{await loadRows()}catch(e){$('boardNote').textContent='Can\'t reach the leaderboard right now.';return}
+    renderBoard();setInterval(async()=>{if(!$('menu').hidden){try{await loadRows();renderBoard()}catch(e){}}},30000);return;
+  }
+  const cl=window.claude;
+  if(!cl?.use){renderBoard();return}
+  [db,user]=await Promise.all([cl.use('db'),cl.use('user')]);
+  if(!db){renderBoard();return}
+  backend='claude';
+  if(user)try{myId=await user.id()}catch(e){}
+  const timer=setTimeout(()=>{$('boardNote').textContent='Can\'t reach the leaderboard right now.'},10000);
+  db.collection('players').onSnapshot(q=>{if(!q.metadata.fromCache)clearTimeout(timer);rows=q.docs.filter(d=>d.exists).map(d=>({id:d.id,...d.data()}));renderStatus();if(!$('menu').hidden)renderBoard()},
+    ()=>{clearTimeout(timer);$('boardNote').textContent='Can\'t reach the leaderboard right now.'});
+})();
+</script>
+
+</body></html>
