@@ -517,12 +517,13 @@ function render(now){
   if(rv&&phase==='pre'&&tr>=1){phase='done';render(now);clipEnded();return}
   if(!rv&&phase==='pre'&&tr>=1){phase='post';t0=now;raf=requestAnimationFrame(render);return}
   if(!rv&&phase==='post'&&tr>=1){
-    if(showLine){setTimeout(()=>{phase='frozen';render(performance.now())},600);return}
+    if(showLine){const forCase=C;clearTimeout(lineTimer);lineTimer=setTimeout(()=>{if(C===forCase&&showLine){phase='frozen';render(performance.now())}},600);return}
     phase='done';render(now);clipEnded();return}
   if(phase==='pre'||phase==='post')raf=requestAnimationFrame(render);
 }
 function isRev(){return !!(C&&C.rev)&&!reviewing&&!showLine&&!decided}
-function run(){cancelAnimationFrame(raf);phase=isRev()?'post':'pre';t0=performance.now();setCalls(false);$('replay').disabled=true;raf=requestAnimationFrame(render)}
+let lineTimer=0;
+function run(){cancelAnimationFrame(raf);clearTimeout(lineTimer);phase=isRev()?'post':'pre';t0=performance.now();setCalls(false);$('replay').disabled=true;raf=requestAnimationFrame(render)}
 function clipEnded(){if(!decided){setCalls(true);updReplay()}}
 function setCalls(on){document.querySelectorAll('.call').forEach(b=>{b.disabled=!on||decided})}
 function updReplay(){const r=$('replay');r.disabled=replays<1||decided;r.textContent=replays?`Replay (${replays} left)`:'No replays left'}
@@ -552,7 +553,7 @@ function deal(pool,last){
   return a;
 }
 function nextCase(i){
-  const c=pickCase(i);
+  const c={...pickCase(i)}; // copy, so flags never stick to the shared case list
   if(mode==='unlimited'&&i>0&&Math.random()<.15)c.rev=true; // 15% of Unlimited calls are rewinds (never the first)
   return c;
 }
@@ -572,7 +573,7 @@ function vary(c){
 
 function load(i){
   while(mode==='unlimited'&&i>=order.length)order.push(nextCase(order.length));
-  n=i;C=order[i];M=build(C);showLine=false;decided=false;replays=1;
+  clearTimeout(lineTimer);n=i;C=order[i];M=build(C);showLine=false;decided=false;replays=1;
   $('caseLabel').innerHTML=(mode==='daily'?`Daily · case <b>${i+1}</b> of <b>10</b>`:`Unlimited · case <b>${i+1}</b>`)+` · <b>${speed().toFixed(2).replace(/0$/,'')}×</b>`;
   showPts();
   $('lives').hidden=mode==='daily';
