@@ -317,6 +317,15 @@ function generateCases(count){
   const defsAt=(L,y)=>[[L,y-30],[L-ri(6,26),y+50],[L-ri(20,60),y+120],[L-ri(40,90),y-100]].map(([x,yy])=>[x,Math.max(70,Math.min(470,yy))]);
   const keeper=(L)=>[Math.min(905,Math.max(L+45,ri(888,905))),ri(250,290)];
   const W={through:9,cross:6,cutback:2,throw:2,corner:1,goalkick:2,rebound:3,decoyFar:2,decoyBlock:2,deliberate:2,deflect:2,ownHalf:2,keeperOut:1,arm:1,shoulder:1,offPitch:1,twoRunners:2};
+  // Alternative opening lines so the same template doesn't read the same every time.
+  const LEADS={
+    through:['Ball slipped in behind.','Pass split the defence.','Lofted ball over the top.','Quick one-two, then through.','Defence caught square.'],
+    cross:['Whipped ball into the box.','Early cross from wide.','Low cross across the six-yard box.','Ball hung up to the back post.'],
+    goalkick:['Keeper launches it long.','Goal kick straight up the pitch.'],
+    rebound:['Keeper parries it out.','Loose ball in the box.'],
+    throw:['Long throw into the area.','Quick throw down the line.'],
+    arm:['Tight one on the line.','Defence steps up late.'],
+    shoulder:['Tight one on the line.','Defence steps up late.']};
   const bag=Object.entries(W).flatMap(([k,n])=>Array(n).fill(k));
   const out=[];
   for(let i=0;i<count;i++){
@@ -361,6 +370,7 @@ function generateCases(count){
     else if(t==='twoRunners'){
       c={t:3,brief:`Two blue runners. <strong>#${n}</strong> takes it.`,p:[L-ri(150,190),ri(290,320)],r:[L-ri(10,25),ri(290,310)],f:[Math.min(L+100,870),275],decoy:[L+ri(40,60),ri(205,225)],rn:n,dn:d2,d:defsAt(L,y),k:K,goal:true,why:`#${d2} was offside but never touched it. #${n}, who scored, was onside.`}}
     if(!c)continue;
+    const alt=LEADS[t];if(alt){const from=c.brief.split('. ')[0]+'.';const to=pick([from,...alt]);c.brief=c.brief.replace(from,to)}
     const refRight=r()<.72;
     c.ref=(c.goal===refRight)?'Goal given':'Flagged, no goal';
     c.id='T'+(i+1);c.rn=c.rn||n;
@@ -368,7 +378,7 @@ function generateCases(count){
   }
   return out;
 }
-CASES.push(...generateCases(110));
+CASES.push(...generateCases(400));
 
 const cv=document.getElementById('pitch'),ctx=cv.getContext('2d'),W=960,H=540;
 const DPR=Math.min(window.devicePixelRatio||1,2);cv.width=W*DPR;cv.height=H*DPR;ctx.scale(DPR,DPR);
@@ -478,15 +488,25 @@ const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Europe/London'}
 function newOrder(){
   history=[];
   rnd=mode==='daily'?seeded('flagup-'+today()):Math.random;
-  deckN=[];deckH=[];order=[];
+  deckN=[];deckH=[];lastN=lastH=null;order=[];
   for(let i=0;i<(mode==='daily'?10:40);i++)order.push(nextCase(i));
 }
 // Every 5th case is a super-hard one from the expert pool; the rest come from the easy and medium pools.
 let deckN=[],deckH=[];
+// Unlimited remembers when you last saw each case (across runs) and deals the least recently seen first.
+function seenMap(){try{return JSON.parse(localStorage.getItem('flagup-seen')||'{}')}catch(e){return{}}}
+function markSeen(id){if(mode!=='unlimited'||id==null)return;try{const m=seenMap();m[id]=Date.now();localStorage.setItem('flagup-seen',JSON.stringify(m))}catch(e){}}
+let lastN=null,lastH=null;
+function deal(pool,last){
+  let a=shuffle(pool);
+  if(mode==='unlimited'){const m=seenMap();a.sort((x,y)=>(m[CASES.indexOf(y)]||0)-(m[CASES.indexOf(x)]||0))}
+  if(a.length>1&&a[a.length-1]===last)[a[0],a[a.length-1]]=[a[a.length-1],a[0]]; // no back-to-back repeat on refill
+  return a;
+}
 function nextCase(i){
   const sup=(i+1)%5===0;
-  if(sup){if(!deckH.length)deckH=shuffle(CASES.filter(c=>c.t===3));return{...vary(deckH.pop()),sup:true}}
-  if(!deckN.length)deckN=shuffle(CASES.filter(c=>c.t<3));return vary(deckN.pop());
+  if(sup){if(!deckH.length)deckH=deal(CASES.filter(c=>c.t===3),lastH);lastH=deckH.pop();return{...vary(lastH),sup:true,_id:CASES.indexOf(lastH)}}
+  if(!deckN.length)deckN=deal(CASES.filter(c=>c.t<3),lastN);lastN=deckN.pop();return{...vary(lastN),_id:CASES.indexOf(lastN)};
 }
 // Training cases get flipped top-to-bottom and nudged at random, so they never look the same twice. Real cases stay as they were.
 function vary(c){
@@ -509,7 +529,7 @@ function load(i){
   $('brief').innerHTML=C.brief;
   $('verdict').hidden=true;$('final').hidden=true;
   document.querySelectorAll('.call').forEach(b=>b.classList.remove('chosen'));
-  drawLives();run();
+  markSeen(C._id);drawLives();run();
 }
 
 document.querySelectorAll('.call').forEach(btn=>btn.onclick=()=>{
@@ -691,8 +711,11 @@ renderStatus();
   const inClaude=/claude/i.test(location.hostname)||!!window.claude;
   if(!inClaude&&SUPABASE_URL&&SUPABASE_ANON_KEY&&window.supabase){
     backend='supabase';sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);myId=deviceId();$('whoRow').hidden=false;
-    try{await loadRows()}catch(e){$('boardNote').textContent='Can\'t reach the leaderboard right now.';return}
-    renderBoard();setInterval(async()=>{if(!$('menu').hidden){try{await loadRows();renderBoard()}catch(e){}}},30000);return;
+    // Retry a few times before giving up (Supabase can blip or be waking up), and keep polling either way so it recovers by itself.
+    let ok=false;
+    for(const wait of [0,2000,5000]){if(wait){$('boardNote').textContent='Connecting to the leaderboard…';await new Promise(r=>setTimeout(r,wait))}try{await loadRows();ok=true;break}catch(e){}}
+    if(ok)renderBoard();else $('boardNote').textContent='Can\'t reach the leaderboard right now. Retrying…';
+    setInterval(async()=>{if(!$('menu').hidden){try{await loadRows();renderBoard()}catch(e){}}},ok?30000:10000);return;
   }
   const cl=window.claude;
   if(!cl?.use){renderBoard();return}
