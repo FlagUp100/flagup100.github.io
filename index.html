@@ -485,8 +485,10 @@ function render(now){
   const c=C,m=M;
   let ph=phase,t=1;
   if(phase==='pre'||phase==='post')t=Math.min((now-t0)*speed()/(phase==='pre'?PRE:POST),1);
+  const tr=t, rv=isRev();
+  if(rv&&(phase==='pre'||phase==='post'))t=1-t; // rewind: play each phase backwards
   if(phase==='frozen')ph='pre';
-  if(phase==='done')ph='post';
+  if(phase==='done'){ph=rv?'pre':'post';if(rv)t=0}
   ctx.clearRect(0,0,W,H);pitch();
   if(phase==='frozen')drawLines(c);
   m.def.forEach(d=>man(...pos(d,ph,t),'#ff8a5c',''));
@@ -507,14 +509,17 @@ function render(now){
   if(c.restart&&(phase==='pre'||(phase==='post'&&t<.25))){const tag={throw:'THROW-IN',goalkick:'GOAL KICK',corner:'CORNER'}[c.restart];ctx.font='600 20px Barlow, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const w=ctx.measureText(tag).width+28;ctx.fillStyle='rgba(13,20,16,.85)';ctx.fillRect(W/2-w/2,52,w,34);ctx.fillStyle='#f2c230';ctx.fillText(tag,W/2,70)}
   const hud=$('hud');
   hud.className='hud'+(phase==='done'||phase==='frozen'?' freeze':'');
-  hud.textContent=reviewing&&phase==='frozen'?'YOUR MISTAKE · AT THE PASS':phase==='pre'||phase==='post'?`LIVE · ${speed().toFixed(2).replace(/0$/,'')}×`:phase==='done'?'YOUR CALL':'AT THE MOMENT OF THE PASS';
-  if(phase==='pre'&&t>=1){phase='post';t0=now;raf=requestAnimationFrame(render);return}
-  if(phase==='post'&&t>=1){
+  hud.textContent=reviewing&&phase==='frozen'?'YOUR MISTAKE · AT THE PASS':phase==='pre'||phase==='post'?`${rv?'◀◀ REWIND':'LIVE'} · ${speed().toFixed(2).replace(/0$/,'')}×`:phase==='done'?'YOUR CALL':'AT THE MOMENT OF THE PASS';
+  if(rv&&phase==='post'&&tr>=1){phase='pre';t0=now;raf=requestAnimationFrame(render);return}
+  if(rv&&phase==='pre'&&tr>=1){phase='done';render(now);clipEnded();return}
+  if(!rv&&phase==='pre'&&tr>=1){phase='post';t0=now;raf=requestAnimationFrame(render);return}
+  if(!rv&&phase==='post'&&tr>=1){
     if(showLine){setTimeout(()=>{phase='frozen';render(performance.now())},600);return}
     phase='done';render(now);clipEnded();return}
   if(phase==='pre'||phase==='post')raf=requestAnimationFrame(render);
 }
-function run(){cancelAnimationFrame(raf);phase='pre';t0=performance.now();setCalls(false);$('replay').disabled=true;raf=requestAnimationFrame(render)}
+function isRev(){return !!(C&&C.rev)&&!reviewing&&!showLine}
+function run(){cancelAnimationFrame(raf);phase=isRev()?'post':'pre';t0=performance.now();setCalls(false);$('replay').disabled=true;raf=requestAnimationFrame(render)}
 function clipEnded(){if(!decided){setCalls(true);updReplay()}}
 function setCalls(on){document.querySelectorAll('.call').forEach(b=>{b.disabled=!on||decided})}
 function updReplay(){const r=$('replay');r.disabled=replays<1||decided;r.textContent=replays?`Replay (${replays} left)`:'No replays left'}
@@ -529,6 +534,7 @@ function newOrder(){
   rnd=mode==='daily'?seeded('flagup-'+today()):Math.random;
   deckN=[];deckH=[];lastN=lastH=null;order=[];
   for(let i=0;i<(mode==='daily'?10:40);i++)order.push(nextCase(i));
+  if(mode==='daily'){const idx=shuffle([0,1,2,3,4,5,6,7,8,9]).slice(0,3);idx.forEach(i=>order[i]={...order[i],rev:true})}
 }
 // Every 5th case is a super-hard one from the expert pool; the rest come from the easy and medium pools.
 let deckN=[],deckH=[];
@@ -565,7 +571,7 @@ function load(i){
   $('caseMeta').textContent=C.real?C.meta:['','Easy','Medium','Hard'][C.t];
   const tag=$('caseTag');tag.textContent=(C.sup?'SUPER HARD · DOUBLE POINTS · ':'')+(C.real?'Real case · positions approx.':'Training case');tag.className='tag'+(C.real||C.sup?' real':'');
   $('stage').classList.toggle('sup',!!C.sup);
-  $('brief').innerHTML=C.brief;
+  $('brief').innerHTML=(C.rev?'<strong>◀◀ Rewind.</strong> You\'ll see it backwards. ':'')+C.brief;
   $('verdict').hidden=true;$('final').hidden=true;
   document.querySelectorAll('.call').forEach(b=>b.classList.remove('chosen'));
   markSeen(C._id);drawLives();run();
