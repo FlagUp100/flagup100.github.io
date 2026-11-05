@@ -549,6 +549,11 @@ function deal(pool,last){
   return a;
 }
 function nextCase(i){
+  const c=pickCase(i);
+  if(mode==='unlimited'&&i>0&&Math.random()<.15)c.rev=true; // 15% of Unlimited calls are rewinds (never the first)
+  return c;
+}
+function pickCase(i){
   const sup=(i+1)%5===0;
   if(sup){if(!deckH.length)deckH=deal(CASES.filter(c=>c.t===3),lastH);lastH=deckH.pop();return{...vary(lastH),sup:true,_id:CASES.indexOf(lastH)}}
   if(!deckN.length)deckN=deal(CASES.filter(c=>c.t<3),lastN);lastN=deckN.pop();return{...vary(lastN),_id:CASES.indexOf(lastN)};
