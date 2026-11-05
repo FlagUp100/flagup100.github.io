@@ -45,6 +45,8 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:16/9}
 .call:hover:not(:disabled){transform:translateY(-2px);border-color:var(--chalk)}
 .call:disabled{cursor:default;opacity:.4}
 .call.chosen{opacity:1;border-color:var(--chalk)}
+.call.isWrong{opacity:1;border:3px solid var(--wrong);background:rgba(224,80,63,.15)}
+.call.isRight{opacity:1;border:3px solid var(--right);background:rgba(88,196,138,.15)}
 .icon{flex:none;width:34px;height:40px;position:relative}
 .icon.flagup::before{content:"";position:absolute;left:4px;top:0;width:3px;height:40px;background:var(--chalk)}
 .icon.flagup::after{content:"";position:absolute;left:7px;top:2px;width:24px;height:16px;background:linear-gradient(135deg,var(--flag) 50%,var(--wrong) 50%)}
@@ -507,6 +509,7 @@ function render(now){
   if(lift){ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(b[0],b[1]+4,6,3,0,0,7);ctx.fill()}
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(b[0],b[1]-lift,6,0,7);ctx.fill();
   if(c.restart&&(phase==='pre'||(phase==='post'&&t<.25))){const tag={throw:'THROW-IN',goalkick:'GOAL KICK',corner:'CORNER'}[c.restart];ctx.font='600 20px Barlow, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const w=ctx.measureText(tag).width+28;ctx.fillStyle='rgba(13,20,16,.85)';ctx.fillRect(W/2-w/2,52,w,34);ctx.fillStyle='#f2c230';ctx.fillText(tag,W/2,70)}
+  if(phase==='frozen'&&decided&&!reviewing&&C.lastOk!==undefined){const ok=C.lastOk,txt=ok?'✓ RIGHT CALL':'✗ WRONG CALL';ctx.font='700 30px Barlow, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const w=ctx.measureText(txt).width+40;ctx.fillStyle=ok?'rgba(88,196,138,.95)':'rgba(224,80,63,.95)';ctx.fillRect(W/2-w/2,H-96,w,50);ctx.fillStyle='#0d1410';ctx.fillText(txt,W/2,H-70)}
   const hud=$('hud');
   hud.className='hud'+(phase==='done'||phase==='frozen'?' freeze':'');
   hud.textContent=reviewing&&phase==='frozen'?'YOUR MISTAKE · AT THE PASS':phase==='pre'||phase==='post'?`${rv?'◀◀ REWIND':'LIVE'} · ${speed().toFixed(2).replace(/0$/,'')}×`:phase==='done'?'YOUR CALL':'AT THE MOMENT OF THE PASS';
@@ -518,7 +521,7 @@ function render(now){
     phase='done';render(now);clipEnded();return}
   if(phase==='pre'||phase==='post')raf=requestAnimationFrame(render);
 }
-function isRev(){return !!(C&&C.rev)&&!reviewing&&!showLine}
+function isRev(){return !!(C&&C.rev)&&!reviewing&&!showLine&&!decided}
 function run(){cancelAnimationFrame(raf);phase=isRev()?'post':'pre';t0=performance.now();setCalls(false);$('replay').disabled=true;raf=requestAnimationFrame(render)}
 function clipEnded(){if(!decided){setCalls(true);updReplay()}}
 function setCalls(on){document.querySelectorAll('.call').forEach(b=>{b.disabled=!on||decided})}
@@ -578,7 +581,7 @@ function load(i){
   $('stage').classList.toggle('sup',!!C.sup);
   $('brief').innerHTML=(C.rev?'<strong>◀◀ Rewind.</strong> You\'ll see it backwards. ':'')+C.brief;
   $('verdict').hidden=true;$('final').hidden=true;
-  document.querySelectorAll('.call').forEach(b=>b.classList.remove('chosen'));
+  document.querySelectorAll('.call').forEach(b=>b.classList.remove('chosen','isRight','isWrong'));
   markSeen(C._id);drawLives();run();
 }
 
@@ -586,7 +589,7 @@ document.querySelectorAll('.call').forEach(btn=>btn.onclick=()=>{
   const c=C,saidGoal=btn.dataset.goal==='1',ok=saidGoal===c.goal;
   decided=true;gain=0;if(ok){score++;streak++;gain=Math.min(streak,5)*10*(c.sup?2:1);points+=gain}else{streak=0;if(mode==='unlimited')lives--}drawLives();showPts();
   history.push({c,M,saidGoal,ok});
-  document.querySelectorAll('.call').forEach(b=>{b.disabled=true;b.classList.toggle('chosen',b===btn)});
+  document.querySelectorAll('.call').forEach(b=>{b.disabled=true;b.classList.toggle('chosen',b===btn);const isCorrect=(b.dataset.goal==='1')===c.goal;b.classList.toggle('isRight',isCorrect);b.classList.toggle('isWrong',b===btn&&!ok)});C.lastOk=ok;
   updReplay();
   const refRight=(c.ref==='Goal given')===c.goal;
   const v=$('verdict');v.classList.toggle('good',ok);
@@ -602,7 +605,7 @@ document.querySelectorAll('.call').forEach(btn=>btn.onclick=()=>{
   $('next').textContent=last?'See your score':'Next case';
   v.hidden=false;showLine=true;
   cancelAnimationFrame(raf);phase='frozen';render(performance.now());
-  v.scrollIntoView({behavior:reduce?'auto':'smooth',block:'nearest'});
+  setTimeout(()=>v.scrollIntoView({behavior:reduce?'auto':'smooth',block:'end'}),350);
 });
 $('replay').onclick=()=>{if(replays<1)return;replays--;run()};
 $('showLine').onclick=()=>{cancelAnimationFrame(raf);phase='pre';t0=performance.now();raf=requestAnimationFrame(render)};
