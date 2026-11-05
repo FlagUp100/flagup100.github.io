@@ -494,7 +494,17 @@ function render(now){
   man(...pos(m.passer,ph,t),c.restart==='goalkick'?'#c9d94a':'#6fb3ff',m.passer.n);
   if(m.decoy)man(...pos(m.decoy,ph,t),'#6fb3ff',m.decoy.n,c.dk&&phase==='frozen');
   man(...pos(m.rec,ph,t),'#6fb3ff',m.rec.n,!c.dk&&phase==='frozen',c.arm&&(ph==='pre'));
-  const b=pos(m.ball,ph,t);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(b[0],b[1],6,0,7);ctx.fill();
+  const b=pos(m.ball,ph,t);
+  // Restarts: make them unmistakable. Corner flag, thrower's arms up, and the ball lofted (shadow on the ground).
+  if(c.restart==='corner'){const top=c.p[1]<H/2,fy=top?40:H-40,e=top?-1:1;ctx.strokeStyle='#e8efe6';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(922,fy);ctx.lineTo(922,fy+e*28);ctx.stroke();ctx.fillStyle='#f2c230';ctx.beginPath();ctx.moveTo(922,fy+e*28);ctx.lineTo(938,fy+e*22);ctx.lineTo(922,fy+e*16);ctx.fill()}
+  if(c.restart==='throw'&&ph==='pre'){const q=pos(m.passer,ph,t),up=q[1]<H/2?-1:1;ctx.strokeStyle='#6fb3ff';ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(q[0]-7,q[1]+up*8);ctx.lineTo(q[0]-5,q[1]+up*24);ctx.moveTo(q[0]+7,q[1]+up*8);ctx.lineTo(q[0]+5,q[1]+up*24);ctx.stroke()}
+  if(c.restart==='goalkick'&&ph==='pre'){ctx.fillStyle='rgba(13,20,16,.85)';ctx.fillRect(52,c.p[1]+24,128,22);ctx.fillStyle='#c9d94a';ctx.font='500 12px "JetBrains Mono", monospace';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText('← KEEPER\'S KICK',58,c.p[1]+35)}
+  let lift=0;
+  if(ph==='pre'&&c.restart==='throw'){const up=b[1]<H/2?-1:1;lift=0;b[1]+=up*26}
+  if(ph==='post'&&(c.restart==='throw'||c.restart==='goalkick'||c.restart==='corner'))lift=Math.sin(Math.PI*Math.min(t/.45,1))*(c.restart==='goalkick'?55:22);
+  if(lift){ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(b[0],b[1]+4,6,3,0,0,7);ctx.fill()}
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(b[0],b[1]-lift,6,0,7);ctx.fill();
+  if(c.restart&&(phase==='pre'||(phase==='post'&&t<.25))){const tag={throw:'THROW-IN',goalkick:'GOAL KICK',corner:'CORNER'}[c.restart];ctx.font='600 20px Barlow, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const w=ctx.measureText(tag).width+28;ctx.fillStyle='rgba(13,20,16,.85)';ctx.fillRect(W/2-w/2,52,w,34);ctx.fillStyle='#f2c230';ctx.fillText(tag,W/2,70)}
   const hud=$('hud');
   hud.className='hud'+(phase==='done'||phase==='frozen'?' freeze':'');
   hud.textContent=reviewing&&phase==='frozen'?'YOUR MISTAKE · AT THE PASS':phase==='pre'||phase==='post'?`LIVE · ${speed().toFixed(2).replace(/0$/,'')}×`:phase==='done'?'YOUR CALL':'AT THE MOMENT OF THE PASS';
